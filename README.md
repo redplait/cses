@@ -1,2 +1,2 @@
 # cses
-Selected solutions for CSES
+Selected solutions for [CSES](https://cses.fi/problemset/)
