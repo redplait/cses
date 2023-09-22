@@ -20,7 +20,7 @@ using namespace std;
 struct planet
 {
   int n;
-  planet *edge;
+  planet *edge = nullptr;
   vector<planet *> *big_cycle = nullptr;
   int big_index;
   // dfs data for cycles
@@ -309,7 +309,7 @@ printTime("start");
 #ifdef DEBUG
   dump_planets(planets);
 #endif
-  // secons pass to collect remaibed routes
+  // secons pass to collect remained routes (actually this only cycles non-connected with main graph)
   for ( int i = 0; i < n; ++i )
   {
     auto &curr = planets[i];
