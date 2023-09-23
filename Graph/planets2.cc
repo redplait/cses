@@ -19,6 +19,8 @@ using namespace std;
 #define KSIZE 10
 // size of routes
 #define RSIZE 500
+// min size to cache route
+#define MIN_CSIZE 2000
 
 struct planet
 {
@@ -367,7 +369,7 @@ printTime("start");
   }
  // dump_planets(planets, false);
   printTime("before routes");
-  // fill my_routes
+  // fill weights
   typedef pair<planet *, int64_t> pw;
   vector<pw> weights;
   for ( int i = 0; i < n; ++i )
@@ -385,6 +387,7 @@ printTime("start");
   }
   if ( weights.size() )
   {
+    // lets try to find hottest routes for caching
     sort(weights.begin(), weights.end(), [](const pw &a, const pw &b) { return a.second > b.second;});
     // for ( auto &w: weights )
     //  printf("%d %ld in %d\n", w.first->n, w.second, w.first->has_in);
@@ -393,6 +396,8 @@ printTime("start");
       {
         if ( w.first->has_in )
           break;
+        if ( w.first->my_routes )
+          continue;
         if ( w.second < 2000 )
           break;
         fill_my_routes(w.first);
@@ -400,8 +405,10 @@ printTime("start");
     else
       for ( auto &w: weights )
       {
-        if ( w.second < 2000 )
+        if ( w.second < MIN_CSIZE )
           break;
+        if ( w.first->my_routes )
+          continue;
         fill_my_routes(w.first);
       }
   }
