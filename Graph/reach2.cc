@@ -12,18 +12,18 @@
 
 // Reachability Queries
 // at this time graph has cycles. Effectively all nodes in cycle must have the same butmask
-// we can achieve this just sharing one mask for several nodes
-// so now node has pointer to mask and we need 3 pass:
-// 1) to find cycles
-// 2) to assign masks nodes outside of cycles
+// we can achieve this just sharing common single mask for several nodes
+// so now node has pointer to mask and we need 4 pass:
+// 1) to find cycles and assing common mask for each cycle
+// 2) to assign masks for nodes outside of cycles
 // 3) fill bitmasks
-// 4) last pass to fill bitmasks again bcs at pass 3 masks for cycles was not completed yet
-// also cycles should be merhed. Lets consider graph
+// 4) last pass to fill bitmasks again for nodes outside of cycles bcs at pass 3 masks for cycles was not completed yet
+// also cycles should be merged. Lets consider graph
 //    1   5     If we start search from node 1 then we put in stack 2
-//   / \ / \    node 2 will detect cycle after visiting 5 6 7 -> 2 and assign some mask to all this nodes
+//   / \ / \    node 2 will detect cycle after visiting 5 6 7 (or 7 6 5) -> 2 and assign some mask to all this nodes
 //  4   2   6   then return to 3 4 and at 1 another cycle will be detected
 //   \/  \ /    If we will give new fresh mask to 2 then cycle 2 5 6 7 will be unlinked
-//   3    7     so when processing 1 2 3 4 we need to collect mask from all this node before requiring new one
+//   3    7     so when processing 1 2 3 4 we need to collect mask from all this nodes before requiring new one
 using namespace std;
 
 struct Bset
