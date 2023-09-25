@@ -11,7 +11,7 @@
 #pragma GCC optimize("-Ofast")
 
 // Reachability Queries
-// at this time graph has cycles. Effectively all nodes in cycle must have the same butmask
+// at this time graph has cycles. Effectively all nodes in cycle must have the same bitmask
 // we can achieve this just sharing common single mask for several nodes
 // so now node has pointer to mask and we need 4 pass:
 // 1) to find cycles and assing common mask for each cycle
