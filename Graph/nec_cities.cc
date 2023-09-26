@@ -81,7 +81,7 @@ int main()
   for ( int i = 0; i < n; ++i )
   {
     if ( !g.nodes[i].visited ) // graph can have several disjointed parts
-     g.dfs(0);
+     g.dfs(i);
   }
   printf("%ld\n", g.res.size());
   for ( int r: g.res )
