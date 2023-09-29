@@ -141,7 +141,7 @@ struct graph
 
 inline void printTime(const char *pfx)
 {
-#ifdef DEBUG
+#ifdef TIME
   printf("%s: %f\n", pfx, (float)clock()/CLOCKS_PER_SEC);
 #endif
 }
