@@ -211,6 +211,16 @@ inline void printTime(const char *pfx)
 #endif
 }
 
+#ifdef TIME
+// some stat about number of processed nodes
+int64_t g_skipped = 0;      // amount of skipped cp nodes in skip function, for avg is / q
+int g_skipped_max = 0;      // max from skip function
+int64_t g_cp_visited = 0;   // amount of visited cp nodes in query, for avg is / q
+int g_cp_visited_max = 0;   // max of visited cp nodes in query
+int64_t g_visited_back = 0; // amount of visited cp nodes in back path till crossing
+int g_visited_back_max = 0; // max of back visited cp nodes
+#endif
+
 void restore(parent *from)
 {
   if ( !from )
@@ -226,12 +236,23 @@ void restore(parent *from)
 parent *skip(parent *p, int d)
 {
   parent *prev = p;
+#ifdef TIME
+  int cnt = 0;
+#endif
   for ( ; p; p = p->nc )
   {
     if ( p->day > d )
       break;
+#ifdef TIME
+    cnt++;
+#endif
     prev = p;
   }
+#ifdef TIME
+  g_skipped += cnt;
+  if ( cnt > g_skipped_max )
+    g_skipped_max = cnt;
+#endif  
   for ( p = prev; p; p = p->p )
   {
     if ( p->day >= d )
@@ -270,15 +291,31 @@ int query(graph *g, int a, int b)
   parent *par = start;
   if ( -1 != start->n )
     par = par->nc;
+#ifdef TIME
+  int cnt = 0;
+#endif
   for ( parent *ap = par; ap; ap = ap->nc )
   {
 #ifdef DEBUG2
 printf("mark %p n %d %d day %d\n", ap, ap->n, 1 + c_idx, ap->day);
 #endif
+#ifdef TIME
+    cnt++;
+#endif
     g->mark(ap, ++c_idx);
   }
+#ifdef TIME
+  g_cp_visited += cnt;
+  if ( cnt > g_cp_visited_max )
+    g_cp_visited_max = cnt;
+  cnt = 0;
+#endif
+  // traverse back path
   for ( parent *bp = bn->p; bp; bp = bp->nc )
   {
+#ifdef TIME
+    cnt++;
+#endif    
     if ( !bp->visited )
       continue;
 #ifdef DEBUG2
@@ -365,6 +402,11 @@ printf("aa %p visited %d\n", aa, aa->visited);
     }
   }
 out:
+#ifdef TIME
+  g_visited_back += cnt;
+  if ( cnt > g_visited_back_max )
+    g_visited_back_max = cnt;
+#endif
   // restore visited flag for all left nodes
   g->restore();
   return res;
@@ -404,5 +446,10 @@ int main()
     }
 #endif
   }
+#ifdef TIME
   printTime("results");
+  printf("skipped %ld max %d avg %f\n", g_skipped, g_skipped_max, (double)g_skipped / q);
+  printf("visited %ld max %d avg %f\n", g_cp_visited, g_cp_visited_max, (double)g_cp_visited / q);
+  printf("visited back %ld max %d avg %f\n", g_visited_back, g_visited_back_max, (double)g_visited_back / q);
+#endif
 }
