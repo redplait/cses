@@ -31,6 +31,7 @@ using namespace std;
 // CP_MAX 600: 15.404927s check-points 112
 
 int CP_MAX = 450;
+int CHAIN_MAX = 400;
 
 int g_n = 0; // amount of vertices in graph
 
@@ -97,13 +98,19 @@ struct connected
   parent *root = nullptr;
   parent *first = nullptr;
   unordered_set<node *> nodes;
-  unordered_set<parent *> cps;
+  vector<parent *> cps;
   bool dumped = false;
   void shorting(parent *nc)
   {
     for ( ; first; first = first->p )
       first->nc = nc;
     first = nullptr;
+  }
+  inline void patch_cps(parent *nc)
+  {
+    for ( auto c: cps )
+      c->cp = nc;
+    cps.clear();
   }
   void merge(connected *rhs, parent *nc)
   {
@@ -112,9 +119,6 @@ struct connected
       n->c = this;
       nodes.insert(n);
     }
-    for ( auto c: rhs->cps )
-      cps.insert(c);
-    delete rhs;
     if ( cps.size() > CP_MAX )
     {
       auto curr_size = nodes.size();
@@ -129,12 +133,17 @@ struct connected
         if ( cp_size > g_cp_size_max )
           g_cp_size_max = cp_size;
 #endif
-        for ( auto c: cps )
-          c->cp = nc;
-        cps.clear();
+        patch_cps(nc);
+        rhs->patch_cps(nc);
       }
     }
-    cps.insert(nc);
+    if ( !nc->check_point )
+    {
+      for ( auto c: rhs->cps )
+        cps.push_back(c);
+    }
+    delete rhs;
+    cps.push_back(nc);
   }
 };
 
@@ -221,7 +230,7 @@ struct graph
       an.p = new parent(days + 1);
       if ( !bn.c->first )
         bn.c->first = an.p;
-      bn.c->cps.insert(an.p);
+      bn.c->cps.push_back(an.p);
       an.c = bn.c;
       an.p->n = an.n;
       an.c->nodes.insert(&an);
@@ -234,7 +243,7 @@ struct graph
       bn.p = new parent(days + 1);
       if ( !an.c->first )
         an.c->first = bn.p;
-      an.c->cps.insert(bn.p);
+      an.c->cps.push_back(bn.p);
       bn.c = an.c;
       bn.p->n = bn.n;
       bn.c->nodes.insert(&bn);
@@ -262,10 +271,15 @@ struct graph
   }
 };
 
+inline float getTime()
+{
+  return (float)clock()/CLOCKS_PER_SEC;
+}
+
 inline void printTime(const char *pfx)
 {
 #ifdef TIME
-  printf("%s: %f\n", pfx, (float)clock()/CLOCKS_PER_SEC);
+  printf("%s: %f\n", pfx, getTime());
 #endif
 }
 
@@ -408,7 +422,7 @@ parent *skip(parent *p, int d, node *a, node *b, parent **up_to)
   g_skipped += cnt;
   if ( cnt > g_skipped_max )
     g_skipped_max = cnt;
-#endif  
+#endif
   for ( p = prev; p; p = p->p )
   {
     if ( p->day >= d )
@@ -474,7 +488,7 @@ printf("mark %p n %d %d day %d\n", ap, ap->n, 1 + c_idx, ap->day);
   {
 #ifdef TIME
     cnt++;
-#endif    
+#endif
     if ( !bp->visited )
       continue;
 #ifdef DEBUG2
@@ -576,7 +590,7 @@ int main(int argc, char **argv)
   if ( argc > 1 )
   {
     CP_MAX = atoi(argv[1]);
-    printf("CP_MAX %d\n", CP_MAX); 
+    // printf("CP_MAX %d\n", CP_MAX); 
   }
   ios_base::sync_with_stdio(0); cin.tie(0);cout.tie(0);
   int m, q;
@@ -588,7 +602,9 @@ int main(int argc, char **argv)
     cin>>a>>b;
     g.add_edge(a, b, i);
   }
-  printTime("make connections");
+#ifdef TIME
+  auto mc_time = getTime();
+#endif
 #ifdef DEBUG
   g.dump();
 #endif
@@ -611,6 +627,7 @@ int main(int argc, char **argv)
 #endif
   }
 #ifdef TIME
+  printf("make connections: %f\n", mc_time);
   printTime("results");
   printf("skipped %ld max %d avg %f\n", g_skipped, g_skipped_max, (double)g_skipped / q);
   printf("visited %ld max %d avg %f\n", g_cp_visited, g_cp_visited_max, (double)g_cp_visited / q);
