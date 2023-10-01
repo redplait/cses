@@ -14,11 +14,24 @@ using namespace std;
 
 // New Roads Queries
 
-int CP_MAX = 990;
-int CHAIN_MAX = 1011;
+int MAX_BSET = 250;
+int CP_MAX = 997;
+int CHAIN_MAX = 1010;
 
 int g_n = 0; // amount of vertices in graph
 int g_bset_size = 0;
+int g_bset_idx = 0;
+unsigned char *g_bsets = nullptr;
+
+inline unsigned char *get_bset()
+{
+  if ( g_bset_idx >= MAX_BSET )
+  {
+    printf("bsets limit\n");
+    exit(3);
+  }
+  return g_bsets + g_bset_size * (g_bset_idx++);
+}
 
 void setup()
 {
@@ -26,11 +39,13 @@ void setup()
   if ( g_n & 0x1f )
     s32++;
   g_bset_size = (s32 >> 2);
+  size_t bsize = g_bset_size * MAX_BSET;
+  g_bsets = (unsigned char *)malloc(bsize);
+  memset(g_bsets, 0, bsize);
 }
 
 struct connected;
 struct node;
-struct Bset;
 struct graph;
 
 struct parent
@@ -38,7 +53,7 @@ struct parent
   parent *p; // null for root
   parent *nc; // ptr to nearest parent contained merging of two connections
   parent *cp; // ptr to nearest parent with check-point
-  Bset *check_point = nullptr;
+  unsigned char *check_point = nullptr;
   int day;
   int32_t visited = 0; // for queries - path from left node to root
   int32_t n = -1;
@@ -58,59 +73,47 @@ struct node
   void dump();
 };
 
-struct Bset
+unsigned char *bset_reset()
+{ return get_bset(); }
+
+unsigned char *make_Bset(unsigned char *rhs)
 {
-  unsigned char *b = nullptr;
-  // int res;
-  Bset()
-  { reset(); }
- ~Bset()
-  { if ( b ) free(b); }
-  void reset()
-  { b = (unsigned char *)malloc(g_bset_size);
-    memset(b, 0, g_bset_size); }
-  Bset(Bset *rhs)
-  {
-    b = (unsigned char *)malloc(g_bset_size);
-    memcpy(b, rhs->b, g_bset_size);
-  }
-  Bset(unordered_set<node *> &rhs)
-  {
-    reset();
-    for ( auto n: rhs )
-      set(n->n);
-  }
-  Bset(unordered_set<int32_t> &rhs)
-  {
-    reset();
-    for ( auto n: rhs )
-      set(n);
-  }
-  void or_with(Bset *rhs)
-  {
-    uint32_t *r = (uint32_t *)rhs->b;
-    for ( uint32_t *p = (uint32_t *)b; p < (uint32_t *)(b + g_bset_size); ++p, ++r )
-      *p |= *r;   
-  }
-  inline void set(int i)
-  {
-    int idx = i >> 3; // div 8
-    int mask = i & 7;
-    b[idx] |= 1 << mask;
-  }
-  inline bool test(int i) const
-  {
-    int idx = i >> 3; // div 8
-    int mask = i & 7;
-    return b[idx] & (1 << mask);
-  }
-  int count()
-  { int res = 0;
-    for ( uint32_t *p = (uint32_t *)b; p < (uint32_t *)(b + g_bset_size); ++p )
-      res += __builtin_popcount(*p);
-    return res;
-  }
-};
+  unsigned char *b = (unsigned char *)malloc(g_bset_size);
+  memcpy(b, rhs, g_bset_size);
+  return b;
+}
+inline void bset_set(unsigned char *b, int i)
+{
+  int idx = i >> 3; // div 8
+  int mask = i & 7;
+  b[idx] |= 1 << mask;
+}
+unsigned char *make_Bset(unordered_set<node *> &rhs)
+{
+  unsigned char *b = bset_reset();
+  for ( auto n: rhs )
+    bset_set(b, n->n);
+  return b;
+}
+unsigned char *make_Bset(unordered_set<int32_t> &rhs)
+{
+  unsigned char *b = bset_reset();
+  for ( auto n: rhs )
+    bset_set(b, n);
+  return b;
+}
+void or_with(unsigned char *b, unsigned char *rhs)
+{
+  uint32_t *r = (uint32_t *)rhs;
+  for ( uint32_t *p = (uint32_t *)b; p < (uint32_t *)(b + g_bset_size); ++p, ++r )
+    *p |= *r;   
+}
+inline bool bset_test(unsigned char *b, int i)
+{
+  int idx = i >> 3; // div 8
+  int mask = i & 7;
+  return b[idx] & (1 << mask);
+}
 
 void parent::dump()
 {
@@ -121,14 +124,14 @@ void parent::dump()
       if ( pp->visited )
       {
         if ( check_point )
-         printf(" cp %p size %d day %d visited %d nc %p next cp %p\n", 
-           pp, pp->check_point->count(), pp->day, pp->visited, pp->nc, pp->cp);
+         printf(" cp %p day %d visited %d nc %p next cp %p\n", 
+           pp, pp->day, pp->visited, pp->nc, pp->cp);
         else
          printf(" day %d visited %d my %p nc %p next cp %p\n", pp->day, pp->visited, pp, pp->nc, pp->cp);
       } else {
         if ( check_point )
-           printf(" cp %p size %d day %d nc %p next cp %p\n", 
-             pp, pp->check_point->count(), pp->day, pp->nc, pp->cp);
+           printf(" cp %p day %d nc %p next cp %p\n", 
+             pp, pp->day, pp->nc, pp->cp);
         else {
           if ( pp->cp )
             printf(" %d day %d nc %p next cp %p\n", pp->n, pp->day, pp->nc, pp->cp);
@@ -153,8 +156,11 @@ struct connected
   parent *first = nullptr;
   unordered_set<int32_t> nodes;
   vector<parent *> cps;
-  Bset *prev_cp = nullptr;
+  unsigned char *prev_cp = nullptr;
+  int prev_conn = 0;
+#ifdef DEBUG
   bool dumped = false;
+#endif
   void shorting(parent *nc)
   {
     for ( ; first; first = first->p )
@@ -183,6 +189,7 @@ struct connected
   void merge(graph *g, connected *rhs, parent *nc);
 };
 
+#ifdef DEBUG
 void node::dump()
 {
   if ( !p )
@@ -201,6 +208,7 @@ void node::dump()
   }
   printf("\n");
 }
+#endif
 
 struct graph
 {
@@ -236,7 +244,7 @@ struct graph
   void restore()
   {
     for ( int i = 0; i < visited_idx; ++i )
-      visited[i]->visited = false;
+      visited[i]->visited = 0;
     visited_idx = 0;
   }
   void dump()
@@ -272,13 +280,13 @@ struct graph
       an.c->nodes.insert(an.n);
       bn.c->root->p = an.p;
       bn.c->root = an.p;
-      if ( bn.c->cps.size() > CHAIN_MAX )
+      if ( !bn.c->prev_conn && bn.c->cps.size() > CHAIN_MAX )
         bn.c->make_chain_cp(an.p);
       else
         bn.c->cps.push_back(an.p);
       return;
     }
-    if ( !bn.c) // add node bn to connection set in an
+    if ( !bn.c ) // add node bn to connection set in an
     {
       bn.p = new parent(days + 1);
       if ( !an.c->first )
@@ -288,7 +296,7 @@ struct graph
       bn.c->nodes.insert(bn.n);
       an.c->root->p = bn.p;
       an.c->root = bn.p;
-      if ( an.c->cps.size() > CHAIN_MAX )
+      if ( !an.c->prev_conn && an.c->cps.size() > CHAIN_MAX )
         an.c->make_chain_cp(bn.p);
       else
         an.c->cps.push_back(bn.p);
@@ -299,8 +307,7 @@ struct graph
     an.c->shorting(cp);
     bn.c->shorting(cp);
     an.c->root->nc = bn.c->root->nc = cp;
-    an.c->root->p = cp;
-    bn.c->root->p = cp;
+    an.c->root->p = bn.c->root->p = cp;
     if ( an.c->nodes.size() > bn.c->nodes.size() )
     {
       if ( an.c->prev_cp && bn.c->prev_cp )
@@ -310,6 +317,7 @@ struct graph
       an.c->root = cp;
       an.c->first = cp;
       an.c->prev_cp = cp->check_point;
+      an.c->prev_conn = 1;
     } else {
       if ( an.c->prev_cp && bn.c->prev_cp )
         bn.c->merge2(this, an.c, cp);
@@ -318,6 +326,7 @@ struct graph
       bn.c->root = cp;
       bn.c->first = cp;
       bn.c->prev_cp = cp->check_point;
+      bn.c->prev_conn = 1;
     }
   }
 };
@@ -333,7 +342,7 @@ void connected::merge_nodes(graph *g, connected *rhs)
 
 void connected::make_from_prev(parent *nc)
 {
-  nc->check_point = new Bset(prev_cp);
+  nc->check_point = make_Bset(prev_cp);
 #ifdef TIME
   g_cp_count++; g_cp_cloned++;
   auto cp_size = nodes.size();
@@ -345,16 +354,16 @@ void connected::make_from_prev(parent *nc)
   {
     c->cp = nc;
     if ( c->n != -1 )
-      nc->check_point->set(c->n);
+      bset_set(nc->check_point, c->n);
   }
   if ( nc->n != -1 )
-    nc->check_point->set(nc->n);
+    bset_set(nc->check_point, nc->n);
   cps.clear();
 }
 
 void connected::make_check_point(parent *nc)
 {
-  nc->check_point = new Bset(nodes);
+  nc->check_point = make_Bset(nodes);
 #ifdef TIME
   g_cp_count++;
   auto cp_size = nodes.size();
@@ -371,12 +380,12 @@ void connected::merge2(graph *g, connected *rhs, parent *nc)
   if ( cps.size() + rhs->cps.size() > (size_t)CP_MAX )
   {
     make_from_prev(nc);
-    nc->check_point->or_with(rhs->prev_cp);
+    or_with(nc->check_point, rhs->prev_cp);
     for ( auto c: rhs->cps )
     {
       c->cp = nc;
       if ( c->n != -1 )
-        nc->check_point->set(c->n);
+        bset_set(nc->check_point, c->n);
     }
   }
   if ( !nc->check_point )
@@ -435,8 +444,6 @@ int64_t g_cp_find_ops = 0;
 
 void restore(parent *from)
 {
-  if ( !from )
-    return;
   for ( ; from; from = from->p )
   {
     if ( !from->visited )
@@ -469,21 +476,21 @@ parent *back_from(parent *p, node *a, node *b)
 //    p->dump();
     return p;
   }
-  auto n1 = cp->check_point->test(a->n);
-  auto n2 = cp->check_point->test(b->n);
+  auto n1 = bset_test(cp->check_point, a->n);
+  auto n2 = bset_test(cp->check_point, b->n);
 #ifdef TIME
   g_cp_find_ops += 2;
 #endif
   if ( !n1 && !n2 )
   {
     printf("back_from bug - cannot find both %d & %d in check-point %p day %d\n", a->n, b->n, cp, cp->day);
-    return p;
+    exit(3);
   }
   if ( n1 && n2 )
   {
     return p;
   }
-  int what = 0;
+  int what;
   if ( n1 )
     what = b->n;
   else
@@ -491,7 +498,7 @@ parent *back_from(parent *p, node *a, node *b)
   p = cp;
   for ( ; cp; cp = cp->cp )
   {
-    n1 = cp->check_point->test(what);
+    n1 = bset_test(cp->check_point, what);
 #ifdef TIME
     g_cp_find_ops++;
 #endif
@@ -512,20 +519,21 @@ parent *skip(parent *p, int d, node *a, node *b, parent **up_to)
 //    p->dump();
   if ( cp && cp->check_point )
   {
-    auto n1 = cp->check_point->test(a->n);
-    auto n2 = cp->check_point->test(b->n);
+    auto n1 = bset_test(cp->check_point, a->n);
+    auto n2 = bset_test(cp->check_point, b->n);
 #ifdef TIME
     g_cp_find_ops += 2;
 #endif
     if ( !n1 && !n2 )
     {
       printf("skip bug - cannot find both %d & %d in check-point %p day %d\n", a->n, b->n, cp, cp->day);
+      exit(3);
     } else
     if ( n1 && n2 )
     {
       *up_to = cp;
     } else {
-      int what = 0;
+      int what;
       if ( n1 )
         what = b->n;
       else
@@ -533,7 +541,7 @@ parent *skip(parent *p, int d, node *a, node *b, parent **up_to)
       p = cp;
       for ( ; cp; cp = cp->cp )
       {
-        n1 = cp->check_point->test(what);
+        n1 = bset_test(cp->check_point, what);
 #ifdef TIME
         g_cp_find_ops++;
 #endif
@@ -735,8 +743,6 @@ int main(int argc, char **argv)
   ios_base::sync_with_stdio(0); cin.tie(0);cout.tie(0);
   int m, q;
   cin>>g_n>>m>>q;
-  // if ( g_n > 50000 )
-  //  CHAIN_MAX = 1140;
   if ( argc > 2 )
     CHAIN_MAX = atoi(argv[2]);
   setup();
