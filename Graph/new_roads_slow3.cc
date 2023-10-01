@@ -112,6 +112,23 @@ struct connected
       c->cp = nc;
     cps.clear();
   }
+  void make_check_point(parent *nc)
+  {
+    nc->check_point = new unordered_set<node *>(nodes);
+#ifdef TIME
+    g_cp_count++;
+    auto cp_size = nc->check_point->size();
+    g_cp_size += cp_size;
+    if ( cp_size > g_cp_size_max )
+      g_cp_size_max = cp_size;
+#endif
+    patch_cps(nc);
+  }
+  void make_chain_cp(parent *nc)
+  {
+    make_check_point(nc);
+    cps.push_back(nc);
+  }
   void merge(connected *rhs, parent *nc)
   {
     for ( auto n: rhs->nodes )
@@ -119,21 +136,13 @@ struct connected
       n->c = this;
       nodes.insert(n);
     }
-    if ( cps.size() > CP_MAX )
+    if ( cps.size() + rhs->cps.size() > CP_MAX )
     {
       auto curr_size = nodes.size();
       if ( curr_size < g_n / 2 )
       {
         // make new check-point
-        nc->check_point = new unordered_set<node *>(nodes);
-#ifdef TIME
-        g_cp_count++;
-        auto cp_size = nc->check_point->size();
-        g_cp_size += cp_size;
-        if ( cp_size > g_cp_size_max )
-          g_cp_size_max = cp_size;
-#endif
-        patch_cps(nc);
+        make_check_point(nc);
         rhs->patch_cps(nc);
       }
     }
@@ -230,12 +239,15 @@ struct graph
       an.p = new parent(days + 1);
       if ( !bn.c->first )
         bn.c->first = an.p;
-      bn.c->cps.push_back(an.p);
       an.c = bn.c;
       an.p->n = an.n;
       an.c->nodes.insert(&an);
       bn.c->root->p = an.p;
       bn.c->root = an.p;
+      if ( bn.c->cps.size() > CHAIN_MAX )
+         bn.c->make_chain_cp(an.p);
+      else
+         bn.c->cps.push_back(an.p);
       return;
     }
     if ( !bn.c) // add node bn to connection set in an
@@ -243,12 +255,15 @@ struct graph
       bn.p = new parent(days + 1);
       if ( !an.c->first )
         an.c->first = bn.p;
-      an.c->cps.push_back(bn.p);
       bn.c = an.c;
       bn.p->n = bn.n;
       bn.c->nodes.insert(&bn);
       an.c->root->p = bn.p;
       an.c->root = bn.p;
+      if ( an.c->cps.size() > CHAIN_MAX )
+        an.c->make_chain_cp(bn.p);
+      else
+        an.c->cps.push_back(bn.p);
       return;
     }
     // merge two connection sets
@@ -286,6 +301,7 @@ inline void printTime(const char *pfx)
 #ifdef TIME
 // some stat about number of processed nodes
 int64_t g_skipped = 0;      // amount of skipped cp nodes in skip function, for avg is / q
+int g_no_skips = 0;
 int g_skipped_max = 0;      // max from skip function
 int64_t g_cp_visited = 0;   // amount of visited cp nodes in query, for avg is / q
 int g_cp_visited_max = 0;   // max of visited cp nodes in query
@@ -313,12 +329,20 @@ parent *back_from(parent *p, node *a, node *b)
   parent *cp = p;
   if ( !cp->check_point )
   {
-    cp = cp->nc;
+    if ( cp->cp )
+      cp = cp->cp;
+    if ( !cp )
+      cp = p->nc;
     if ( cp && !cp->check_point )
       cp = cp->cp;
   }
   if ( !cp || !cp->check_point )
+  {
+#ifdef TIME
+    g_no_skips++;
+#endif
     return p;
+  }
   auto n1 = cp->check_point->find(a);
   auto n2 = cp->check_point->find(b);
 #ifdef TIME
@@ -360,7 +384,10 @@ parent *skip(parent *p, int d, node *a, node *b, parent **up_to)
   parent *cp = p;
   if ( !cp->check_point )
   {
-    cp = cp->nc;
+    if ( cp->cp )
+      cp = cp->cp;
+    if ( !cp )
+      cp = p->nc;
     if ( cp && !cp->check_point )
       cp = cp->cp;
   }
@@ -404,6 +431,10 @@ parent *skip(parent *p, int d, node *a, node *b, parent **up_to)
         p = cp;
       }
     }
+  } else {
+#ifdef TIME
+    g_no_skips++;
+#endif
   }
   parent *prev = p;
 #ifdef TIME
@@ -596,6 +627,10 @@ int main(int argc, char **argv)
   int m, q;
   cin>>g_n>>m>>q;
   graph g(g_n);
+  if ( g_n > 50000 )
+    CHAIN_MAX = 600;
+  if ( argc > 2 )
+    CHAIN_MAX = atoi(argv[2]);
   for ( int i = 0; i < m; ++i )
   {
     int a, b;
@@ -629,7 +664,7 @@ int main(int argc, char **argv)
 #ifdef TIME
   printf("make connections: %f\n", mc_time);
   printTime("results");
-  printf("skipped %ld max %d avg %f\n", g_skipped, g_skipped_max, (double)g_skipped / q);
+  printf("not skipped %d skipped %ld max %d avg %f\n", g_no_skips, g_skipped, g_skipped_max, (double)g_skipped / q);
   printf("visited %ld max %d avg %f\n", g_cp_visited, g_cp_visited_max, (double)g_cp_visited / q);
   printf("visited back %ld max %d avg %f\n", g_visited_back, g_visited_back_max, (double)g_visited_back / q);
   printf("skipped cp %d, back skipped %d, find ops %ld\n", g_skipped_cp, g_back_skipped_cp, g_cp_find_ops);
