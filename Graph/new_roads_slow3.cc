@@ -209,7 +209,7 @@ struct graph
   void restore()
   {
     for ( int i = 0; i < visited_idx; ++i )
-      visited[i]->visited = false;
+      visited[i]->visited = 0;
     visited_idx = 0;
   }
   void dump()
@@ -228,6 +228,7 @@ struct graph
       cc->nodes.insert(&an); cc->nodes.insert(&bn);
       // make common parent
       cc->root = new parent(days + 1);
+      cc->cps.push_back(cc->root);
       cc->first = an.p = bn.p = cc->root;
       return;
     }
@@ -250,7 +251,7 @@ struct graph
          bn.c->cps.push_back(an.p);
       return;
     }
-    if ( !bn.c) // add node bn to connection set in an
+    if ( !bn.c ) // add node bn to connection set in an
     {
       bn.p = new parent(days + 1);
       if ( !an.c->first )
@@ -618,8 +619,6 @@ int main(int argc, char **argv)
   int m, q;
   cin>>g_n>>m>>q;
   graph g(g_n);
-  if ( g_n > 50000 )
-    CHAIN_MAX = 600;
   if ( argc > 2 )
     CHAIN_MAX = atoi(argv[2]);
   for ( int i = 0; i < m; ++i )
