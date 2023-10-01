@@ -324,18 +324,22 @@ void restore(parent *from)
   }
 }
 
+parent *get_cp(parent *p)
+{
+  if ( !p )
+    return p;
+  if ( p->check_point )
+    return p;
+  if ( p->cp )
+    return p->cp;
+  if (!p->nc)
+    return p;
+  return p->nc->cp;
+}
+
 parent *back_from(parent *p, node *a, node *b)
 {
-  parent *cp = p;
-  if ( !cp->check_point )
-  {
-    if ( cp->cp )
-      cp = cp->cp;
-    if ( !cp )
-      cp = p->nc;
-    if ( cp && !cp->check_point )
-      cp = cp->cp;
-  }
+  parent *cp = get_cp(p);
   if ( !cp || !cp->check_point )
   {
 #ifdef TIME
@@ -379,18 +383,10 @@ parent *back_from(parent *p, node *a, node *b)
   return p;
 }
 
+
 parent *skip(parent *p, int d, node *a, node *b, parent **up_to)
 {
-  parent *cp = p;
-  if ( !cp->check_point )
-  {
-    if ( cp->cp )
-      cp = cp->cp;
-    if ( !cp )
-      cp = p->nc;
-    if ( cp && !cp->check_point )
-      cp = cp->cp;
-  }
+  parent *cp = get_cp(p);
 //  if ( !cp )
 //    p->dump();
   if ( cp && cp->check_point )
@@ -482,12 +478,7 @@ int query(graph *g, int a, int b)
   int c_idx = 0, res = 0;
   parent *start, *last;
   if ( !(an->p->day < bn->p->day) )
-  {
-    auto old = bn;
-    bn = an;
-    an = old;
-    // swap(an, bn);
-  }
+    swap(an, bn);
   parent *up_to = nullptr;
   start = skip(an->p, bn->p->day, an, bn, &up_to);
   parent *par = start;
