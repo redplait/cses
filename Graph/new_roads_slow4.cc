@@ -13,10 +13,13 @@
 using namespace std;
 
 // New Roads Queries
+#ifdef VRF
+int whut = 13;
+#endif
 
-int MAX_BSET = 250;
-int CP_MAX = 997;
-int CHAIN_MAX = 1010;
+int MAX_BSET = 450;
+int CP_MAX = 488;
+int CHAIN_MAX = 500;
 
 int g_n = 0; // amount of vertices in graph
 int g_bset_size = 0;
@@ -33,12 +36,18 @@ inline unsigned char *get_bset()
   return g_bsets + g_bset_size * (g_bset_idx++);
 }
 
+void unget_bset(unsigned char *b)
+{
+  memset(b, 0, g_bset_size);
+  g_bset_idx--;
+}
+
 void setup()
 {
-  int s32 = g_n << 5; // div 32
+  int s32 = g_n >> 5; // div 32
   if ( g_n & 0x1f )
     s32++;
-  g_bset_size = (s32 >> 2);
+  g_bset_size = (s32 << 2);
   size_t bsize = g_bset_size * MAX_BSET;
   g_bsets = (unsigned char *)malloc(bsize);
   memset(g_bsets, 0, bsize);
@@ -57,6 +66,7 @@ struct parent
   int day;
   int32_t visited = 0; // for queries - path from left node to root
   int32_t n = -1;
+  int32_t n2 = -1;
   parent(int32_t d)
   {
     cp = nc = p = nullptr;
@@ -76,17 +86,23 @@ struct node
 unsigned char *bset_reset()
 { return get_bset(); }
 
-unsigned char *make_Bset(unsigned char *rhs)
+unsigned char *clone_Bset(unsigned char *rhs)
 {
   unsigned char *b = (unsigned char *)malloc(g_bset_size);
   memcpy(b, rhs, g_bset_size);
   return b;
 }
+inline bool bset_test(unsigned char *b, int i)
+{
+  int idx = i >> 3; // div 8
+  int mask = i & 7;
+  return b[idx] & (1 << mask);
+}
 inline void bset_set(unsigned char *b, int i)
 {
   int idx = i >> 3; // div 8
   int mask = i & 7;
-  b[idx] |= 1 << mask;
+  b[idx] |= (1 << mask);
 }
 unsigned char *make_Bset(unordered_set<node *> &rhs)
 {
@@ -107,12 +123,6 @@ void or_with(unsigned char *b, unsigned char *rhs)
   uint32_t *r = (uint32_t *)rhs;
   for ( uint32_t *p = (uint32_t *)b; p < (uint32_t *)(b + g_bset_size); ++p, ++r )
     *p |= *r;   
-}
-inline bool bset_test(unsigned char *b, int i)
-{
-  int idx = i >> 3; // div 8
-  int mask = i & 7;
-  return b[idx] & (1 << mask);
 }
 
 void parent::dump()
@@ -146,6 +156,8 @@ void parent::dump()
 #ifdef TIME
 int g_cp_count = 0;
 int g_cp_cloned = 0;
+int g_cp_merged = 0;
+int g_cp_merged2 = 0;
 int64_t g_cp_size = 0;
 int64_t g_cp_size_max = 0;
 #endif
@@ -157,10 +169,14 @@ struct connected
   unordered_set<int32_t> nodes;
   vector<parent *> cps;
   unsigned char *prev_cp = nullptr;
-  int prev_conn = 0;
 #ifdef DEBUG
   bool dumped = false;
 #endif
+  bool inline in_nodes(int n)
+  {
+    auto ni = nodes.find(n);
+    return ni != nodes.end();
+  }
   void shorting(parent *nc)
   {
     for ( ; first; first = first->p )
@@ -172,16 +188,80 @@ struct connected
   {
     for ( auto c: cps )
       c->cp = nc;
-    cps.clear();
+    // cps.clear();
   }
+#ifdef VRF
+  void verify(parent *nc)
+  {
+    unsigned char *mb = make_Bset(nodes);
+    if ( nc->n != -1 )
+      bset_set(mb, nc->n);
+    // fist check - all nodes must be in
+    for ( int n: nodes )
+    {
+      if ( !bset_test(nc->check_point, n) )
+      {
+        printf("no node %d\n", n);
+      }
+    }
+    // second check - bodies of mb abd nc->check_point must be the same
+    unsigned char *mp = mb;
+    unsigned char *tp = nc->check_point;
+    for ( int i = 0; i < g_bset_size; i++, mp++, tp++ )
+      if ( *mp != *tp )
+      {
+        printf("diff %p at %d: %d vs %d\n", nc->check_point, i, *mp, *tp);
+        for ( int j = i * 8; j < i * 8 + 8; ++j )
+        {
+          auto mv = bset_test(mb, j);
+          auto tv = bset_test(nc->check_point, j);
+          if ( mv != tv )
+            printf("%d %d vs %d\n", j, mv, tv);
+        }
+        exit(4);
+      }
+    unget_bset(mb);
+  }
+#endif
   void make_check_point(parent *nc);
   void make_from_prev(parent *nc);
   void make_chain_cp(parent *nc)
   {
     if ( prev_cp )
+    {
+#ifdef VRF
+      printf("make %p from prev %p %d in it %d\n", this, prev_cp, nc->n, bset_test(prev_cp, whut));
+      if ( in_nodes(whut) )
+      {
+       printf("%d in nodes of %p\n", whut, this); 
+       for ( auto c: cps )
+       {
+         if ( c->n == whut || c->n2 == whut )
+           printf("cps from %p %d %d\n", this, c->n, c->n2);
+       }
+      }
+#endif
       make_from_prev(nc);
-    else
+    } else {
+#ifdef VRF
+      if ( in_nodes(whut) )
+      {
+       printf("make %p check_point %d, %d in nodes\n", this, nc->n, whut);
+       for ( auto c: cps )
+       {
+         if ( c->n == whut || c->n2 == whut )
+           printf("cps from %p %d %d\n", this, c->n, c->n2);
+       }
+      }
+#endif
       make_check_point(nc);
+#ifdef VRF
+      if ( in_nodes(whut) )
+        printf("%d on cp %p: %d\n", whut, nc->check_point, bset_test(nc->check_point, whut));
+#endif
+    }
+    if ( nc->n != -1 )
+      bset_set(nc->check_point, nc->n);
     cps.push_back(nc);
     prev_cp = nc->check_point;
   }
@@ -256,13 +336,45 @@ struct graph
   {
     node &an = nodes[a-1];
     node &bn = nodes[b-1];
+#ifdef VRF
+if ( an.n == whut || bn.n == whut )
+{
+  connected *cc = ( an.n == whut ) ? an.c : bn.c;
+  parent *wp = ( an.n == whut ) ? an.p : bn.p;
+  printf("A_E a %d c %p b %d c %p\n", an.n, an.c, bn.n, bn.c);
+  if ( cc )
+  {
+    if ( cc->in_nodes(whut) )
+      printf(" %d in nodes of %p\n", whut, cc);
+    if ( cc->prev_cp )
+      printf(" prev_cp %p, in it %d\n", cc->prev_cp, bset_test(cc->prev_cp, whut));
+    if ( cc->root->check_point )
+      printf(" check_point %p, in it %d\n", cc->root->check_point, bset_test(cc->root->check_point, whut));
+    for ( auto c: cc->cps )
+    {
+      if ( c->n == whut || c->n2 == whut )
+        printf("cps %d %d\n", c->n, c->n2);
+    }
+  }
+  if ( wp )
+  {
+    printf(" parent %p %d %d, cp %p\n", wp, wp->n, wp->n2, wp->cp);
+    if ( wp->cp && wp->cp->check_point )
+      printf(" check_point %p, in it %d\n", wp->cp->check_point, bset_test(wp->cp->check_point, whut));
+  }
+}
+#endif
     if ( !an.c && !bn.c ) // just edge between some unconnected nodes
     {
       connected *cc = new connected();
       an.c = bn.c = cc;
       cc->nodes.insert(an.n); cc->nodes.insert(bn.n);
+#ifdef VRF
+  if ( an.n == whut || bn.n == whut )  printf("add %d to new conn %p\n", whut, cc);
+#endif
       // make common parent
       cc->root = new parent(days + 1);
+      cc->root->n = an.n; cc->root->n2 = bn.n;
       cc->cps.push_back(cc->root);
       cc->first = an.p = bn.p = cc->root;
       return;
@@ -277,12 +389,19 @@ struct graph
         bn.c->first = an.p;
       an.c = bn.c;
       an.p->n = an.n;
-      an.c->nodes.insert(an.n);
+      bn.c->nodes.insert(an.n);
+#ifdef VRF
+  if ( an.n == whut ) printf("add a.n %d to existing %p\n", whut, an.c);
+#endif
       bn.c->root->p = an.p;
       bn.c->root = an.p;
-      if ( !bn.c->prev_conn && bn.c->cps.size() > CHAIN_MAX )
+      if ( bn.c->cps.size() > CHAIN_MAX )
+      {
         bn.c->make_chain_cp(an.p);
-      else
+#ifdef VRF
+        bn.c->verify(an.p);
+#endif
+      } else
         bn.c->cps.push_back(an.p);
       return;
     }
@@ -293,12 +412,19 @@ struct graph
         an.c->first = bn.p;
       bn.c = an.c;
       bn.p->n = bn.n;
-      bn.c->nodes.insert(bn.n);
+      an.c->nodes.insert(bn.n);
+#ifdef VRF
+  if ( bn.n == whut ) printf("add a.n %d to existing %p\n", whut, an.c);
+#endif
       an.c->root->p = bn.p;
       an.c->root = bn.p;
-      if ( !an.c->prev_conn && an.c->cps.size() > CHAIN_MAX )
+      if ( an.c->cps.size() > CHAIN_MAX )
+      {
         an.c->make_chain_cp(bn.p);
-      else
+#ifdef VRF
+        an.c->verify(bn.p);
+#endif
+      } else
         an.c->cps.push_back(bn.p);
       return;
     }
@@ -311,22 +437,22 @@ struct graph
     if ( an.c->nodes.size() > bn.c->nodes.size() )
     {
       if ( an.c->prev_cp && bn.c->prev_cp )
+      {
         an.c->merge2(this, bn.c, cp);
-      else 
+      } else { 
         an.c->merge(this, bn.c, cp);
+      }
       an.c->root = cp;
       an.c->first = cp;
-      an.c->prev_cp = cp->check_point;
-      an.c->prev_conn = 1;
     } else {
       if ( an.c->prev_cp && bn.c->prev_cp )
+      {
         bn.c->merge2(this, an.c, cp);
-      else 
+      } else { 
         bn.c->merge(this, an.c, cp);
+      }
       bn.c->root = cp;
       bn.c->first = cp;
-      bn.c->prev_cp = cp->check_point;
-      bn.c->prev_conn = 1;
     }
   }
 };
@@ -337,12 +463,21 @@ void connected::merge_nodes(graph *g, connected *rhs)
   {
     g->nodes[n].c = this;
     nodes.insert(n);
+#ifdef VFR
+    if ( n == whut ) printf("merge_nodes%d %p from %p\n", whut, this, rhs);
+#endif
   }
 }
 
 void connected::make_from_prev(parent *nc)
 {
-  nc->check_point = make_Bset(prev_cp);
+#ifdef VRF
+printf("%p: %d on old %p: %d\n", this, whut, prev_cp, bset_test(prev_cp, whut));
+#endif  
+  nc->check_point = clone_Bset(prev_cp);
+#ifdef VRF
+printf("%p: %d on mew %p: %d\n", this, whut, nc->check_point, bset_test(nc->check_point, whut));  
+#endif
 #ifdef TIME
   g_cp_count++; g_cp_cloned++;
   auto cp_size = nodes.size();
@@ -353,17 +488,24 @@ void connected::make_from_prev(parent *nc)
   for ( auto c: cps )
   {
     c->cp = nc;
+#ifdef VRF
+    if ( c->n == whut || c->n2 == whut )
+      printf("set %d %d\n", c->n, c->n2);
+#endif
     if ( c->n != -1 )
       bset_set(nc->check_point, c->n);
+    if ( c->n2 != -1 )
+      bset_set(nc->check_point, c->n2);
   }
-  if ( nc->n != -1 )
-    bset_set(nc->check_point, nc->n);
   cps.clear();
 }
 
 void connected::make_check_point(parent *nc)
 {
   nc->check_point = make_Bset(nodes);
+#ifdef VRF
+  if ( in_nodes(whut) ) printf("%d in check_point %p: %d\n", whut, nc->check_point, bset_test(nc->check_point, whut));
+#endif
 #ifdef TIME
   g_cp_count++;
   auto cp_size = nodes.size();
@@ -372,47 +514,65 @@ void connected::make_check_point(parent *nc)
     g_cp_size_max = cp_size;
 #endif
   patch_cps(nc);
+  cps.clear();
 }
 
 void connected::merge2(graph *g, connected *rhs, parent *nc)
 {
   merge_nodes(g, rhs);
-  if ( cps.size() + rhs->cps.size() > (size_t)CP_MAX )
+#ifdef VRF
+printf("merge2 %p (prev_cp %p) and %p (prev_cp %p)\n", this, this->prev_cp, rhs, rhs->prev_cp);  
+#endif
+  // if ( cps.size() + rhs->cps.size() > (size_t)CP_MAX )
   {
     make_from_prev(nc);
+  #ifdef TIME
+    g_cp_merged2++;
+  #endif
     or_with(nc->check_point, rhs->prev_cp);
     for ( auto c: rhs->cps )
     {
       c->cp = nc;
       if ( c->n != -1 )
         bset_set(nc->check_point, c->n);
+      if ( c->n2 != -1 )
+        bset_set(nc->check_point, c->n2);
     }
-  }
-  if ( !nc->check_point )
+    prev_cp = nc->check_point;
+  } /* else
   {
     for ( auto c: rhs->cps )
       cps.push_back(c);
-  } else
-    prev_cp = nc->check_point;
-  delete rhs;
+    prev_cp = nullptr; // you can`t trust prev_cp without correct cps list which was lost for rhs
+  } */
+//  delete rhs;
   cps.push_back(nc);
 }
 
 void connected::merge(graph *g, connected *rhs, parent *nc)
 {
   merge_nodes(g, rhs);
+#ifdef VRF
+printf("merge %p (prev_cp %p) and %p (prev_cp %p)\n", this, this->prev_cp, rhs, rhs->prev_cp);
+#endif
   if ( cps.size() + rhs->cps.size() > (size_t)CP_MAX )
   {
     make_check_point(nc);
+    if ( nc->n != -1 )
+      bset_set(nc->check_point, nc->n);
     rhs->patch_cps(nc);
-  }
-  if ( !nc->check_point )
+    prev_cp = nc->check_point;
+  } else
   {
     for ( auto c: rhs->cps )
+    {
+#ifdef VRF
+    if ( c->n == whut || c->n2 == whut ) printf("%d cps in merge %p, prev_cp %p, rhs %p\n", whut, this, prev_cp, rhs);  
+#endif
       cps.push_back(c);
-  } else
-    prev_cp = nc->check_point;
-  delete rhs;
+    }
+  }
+//  delete rhs;
   cps.push_back(nc);
 }
 
@@ -784,7 +944,7 @@ int main(int argc, char **argv)
   printf("visited %ld max %d avg %f\n", g_cp_visited, g_cp_visited_max, (double)g_cp_visited / q);
   printf("visited back %ld max %d avg %f\n", g_visited_back, g_visited_back_max, (double)g_visited_back / q);
   printf("skipped cp %d, back skipped %d, find ops %ld\n", g_skipped_cp, g_back_skipped_cp, g_cp_find_ops);
-  printf("check-points %d cloned %d total size %ld nodes, max size %ld, avg size %f\n", 
-    g_cp_count, g_cp_cloned, g_cp_size, g_cp_size_max, (double)g_cp_size / g_cp_count);
+  printf("check-points %d cloned %d m2 %d total size %ld nodes, max size %ld, avg size %f\n", 
+    g_cp_count, g_cp_cloned, g_cp_merged2, g_cp_size, g_cp_size_max, (double)g_cp_size / g_cp_count);
 #endif
 }
