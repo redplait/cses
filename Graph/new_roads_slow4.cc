@@ -13,6 +13,12 @@
 using namespace std;
 
 // New Roads Queries
+// defines
+// TEST         for reading and comparing with test_output.txt
+// TIME         to collect some stat
+// DTOR         call destructors
+// VRF          run some verification
+
 #ifdef VRF
 int whut = 13;
 #endif
@@ -44,10 +50,10 @@ void unget_bset(unsigned char *b)
 
 void setup()
 {
-  int s32 = g_n >> 5; // div 32
-  if ( g_n & 0x1f )
-    s32++;
-  g_bset_size = (s32 << 2);
+  int s64 = g_n >> 6; // div 64
+  if ( g_n & 0x3f )
+    s64++;
+  g_bset_size = (s64 << 3);
   size_t bsize = g_bset_size * MAX_BSET;
   g_bsets = (unsigned char *)malloc(bsize);
   memset(g_bsets, 0, bsize);
@@ -120,8 +126,8 @@ unsigned char *make_Bset(unordered_set<int32_t> &rhs)
 }
 void or_with(unsigned char *b, unsigned char *rhs)
 {
-  uint32_t *r = (uint32_t *)rhs;
-  for ( uint32_t *p = (uint32_t *)b; p < (uint32_t *)(b + g_bset_size); ++p, ++r )
+  uint64_t *r = (uint64_t *)rhs;
+  for ( uint64_t *p = (uint64_t *)b; p < (uint64_t *)(b + g_bset_size); ++p, ++r )
     *p |= *r;   
 }
 
@@ -545,7 +551,9 @@ printf("merge2 %p (prev_cp %p) and %p (prev_cp %p)\n", this, this->prev_cp, rhs,
       cps.push_back(c);
     prev_cp = nullptr; // you can`t trust prev_cp without correct cps list which was lost for rhs
   } */
-//  delete rhs;
+#ifdef DTOR
+  delete rhs;
+#endif
   cps.push_back(nc);
 }
 
@@ -572,7 +580,9 @@ printf("merge %p (prev_cp %p) and %p (prev_cp %p)\n", this, this->prev_cp, rhs, 
       cps.push_back(c);
     }
   }
-//  delete rhs;
+#ifdef DTOR
+  delete rhs;
+#endif
   cps.push_back(nc);
 }
 
