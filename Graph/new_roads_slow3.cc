@@ -30,6 +30,12 @@ using namespace std;
 // CP_MAX 550: 15.762493s check-points 134
 // CP_MAX 600: 15.404927s check-points 112
 
+// defines
+// TEST 	for reading and comparing with test_output.txt
+// TIME		to collect some stat
+// DTOR		call destructors
+// VRF  	run some verification
+
 int CP_MAX = 450;
 int CHAIN_MAX = 400;
 
@@ -139,7 +145,7 @@ struct connected
     if ( cps.size() + rhs->cps.size() > CP_MAX )
     {
       auto curr_size = nodes.size();
-      if ( curr_size < g_n / 2 )
+      if ( curr_size < (g_n * 3) / 4 )
       {
         // make new check-point
         make_check_point(nc);
@@ -151,7 +157,9 @@ struct connected
       for ( auto c: rhs->cps )
         cps.push_back(c);
     }
+#ifdef DTOR
     delete rhs;
+#endif
     cps.push_back(nc);
   }
 };
