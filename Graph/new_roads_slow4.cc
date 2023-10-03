@@ -529,7 +529,7 @@ void connected::merge2(graph *g, connected *rhs, parent *nc)
 #ifdef VRF
 printf("merge2 %p (prev_cp %p) and %p (prev_cp %p)\n", this, this->prev_cp, rhs, rhs->prev_cp);  
 #endif
-  // if ( cps.size() + rhs->cps.size() > (size_t)CP_MAX )
+  if ( cps.size() + rhs->cps.size() > (size_t)CP_MAX )
   {
     make_from_prev(nc);
   #ifdef TIME
@@ -545,12 +545,17 @@ printf("merge2 %p (prev_cp %p) and %p (prev_cp %p)\n", this, this->prev_cp, rhs,
         bset_set(nc->check_point, c->n2);
     }
     prev_cp = nc->check_point;
-  } /* else
-  {
+  } else {
     for ( auto c: rhs->cps )
+    {
+      if ( c->n != -1 )
+        g->nodes[c->n].c = this;
+      if ( c->n2 != -1 )
+        g->nodes[c->n2].c = this;
       cps.push_back(c);
+    }
     prev_cp = nullptr; // you can`t trust prev_cp without correct cps list which was lost for rhs
-  } */
+  }
 #ifdef DTOR
   delete rhs;
 #endif
