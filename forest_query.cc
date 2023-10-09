@@ -12,7 +12,9 @@
 // 2) x1 == 1 - item[y2, x2] - item[y1 - 1, x2]
 // 3) y1 == 1 - item[y2, x2] - item[y2, x1 - 1]
 // 4) item[y2, x2] - item[y2, x1 - 1] - item[y1 - 1, x2] + item[y1 - 1, x1 - 1]
-// so complexity of lookup is O(1) and precalc is O(n * m)
+// so complexity of lookup is O(1) and precalc: there are m rows
+// for each row you visit n columns and with probability 1/2 in average 1/2 m rows. so for each row O( mm/4 )
+// for m rows overall complexity is O( n * m^2 / 4)
 using namespace std;
 
 struct sq
