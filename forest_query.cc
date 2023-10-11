@@ -12,9 +12,9 @@
 // 2) x1 == 1 - item[y2, x2] - item[y1 - 1, x2]
 // 3) y1 == 1 - item[y2, x2] - item[y2, x1 - 1]
 // 4) item[y2, x2] - item[y2, x1 - 1] - item[y1 - 1, x2] + item[y1 - 1, x1 - 1]
-// so complexity of lookup is O(1) and precalc: there are m rows
-// for each row you visit n columns and with probability 1/2 in average 1/2 m rows. so for each row O( n * m/4 )
-// for m rows overall complexity is O( n * m^2 / 4)
+// so complexity of lookup is O(1) and precalc: there are m rows and n columnw
+// for each row you visit n columns twice - first to fill current row and second to add prev array
+// for m rows overall complexity is O( n * m * 2)
 using namespace std;
 
 struct sq
@@ -41,13 +41,15 @@ struct sq
     auto item = row(curr_row);
     for ( int i = 0; i < N; i++ )
     {
-       if ( s[i] == '*' ) {
-         item[i]++;
-         // propagate this +1 to all items below in this column
-         for ( int j = curr_row + 1; j <= N; ++j )
-           get(j, i+1)++;
-       }
+       if ( s[i] == '*' ) item[i]++;
        if ( i ) item[i] += item[i-1];
+    }
+    if ( curr_row > 1 )
+    {
+      item = row(curr_row);
+      auto prev = row(curr_row - 1);
+      for ( int i = 0; i < N; i++ )
+        item[i] += prev[i];
     }
     curr_row++;
   }
@@ -81,7 +83,7 @@ int main()
     g.process_line(s);
   }
 #ifdef DEBUG
-  g.dump();
+  printf("\ntotals:\n"); g.dump();
 #endif
   for ( int i = 0; i < q; ++i )
   {
