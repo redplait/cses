@@ -12,8 +12,8 @@
 // 2) x1 == 1 - item[y2, x2] - item[y1 - 1, x2]
 // 3) y1 == 1 - item[y2, x2] - item[y2, x1 - 1]
 // 4) item[y2, x2] - item[y2, x1 - 1] - item[y1 - 1, x2] + item[y1 - 1, x1 - 1]
-// so complexity of lookup is O(1) and precalc: there are m rows and n columnw
-// for each row you visit n columns twice - first to fill current row and second to add prev array
+// so complexity of lookup is O(1) and precalc: there are m rows and n columns
+// for each row you visit n columns twice - first to fill current row and second to add prev row
 // for m rows overall complexity is O( n * m * 2)
 using namespace std;
 
