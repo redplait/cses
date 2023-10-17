@@ -8,7 +8,7 @@ use Time::HiRes qw( time );
 use bignum;
 
 # var opts
-use vars qw/$opt_v $opt_p $opt_s $opt_t/;
+use vars qw/$opt_v $opt_p $opt_r $opt_s $opt_t/;
 
 sub numberOfPaths
 {
@@ -23,7 +23,7 @@ sub numberOfPaths
 
 # both array contains refs to the same traps, just sorted in different order
 my(@g_sorted_y, @g_sorted_x);
-my $g_q;
+my($g_q, $Res, $N, $begin_time);
 
 # find nearest Y less or eq $item->[0] wuth X < $item->[1]
 # returns index of item in g_sorted_y or -1 if no such items can be found
@@ -112,7 +112,7 @@ sub find_near_x
 # remove odd traps - like in the 1st row x1 < x2, in second row all traps with x > (x3 >= x1) etc
 # so we need sorted_y array
 # removed elements mark with 1 at trap->[4]
-# return count of deleted traps
+# returns count of deleted traps
 sub rm_odd_x
 {
   my $l = scalar(@g_sorted_y);
@@ -157,7 +157,7 @@ OUTER:
 # remove odd traps - like in the 1st column y1 < y2, in second column all traps with y > (y3 >= y1) etc
 # so we need sorted_x array
 # removed elements mark with 1 at trap->[4]
-# return count of deleted traps
+# returns count of deleted traps
 sub rm_odd_y
 {
   my $l = scalar(@g_sorted_x);
@@ -199,11 +199,47 @@ OUTER:
   return $res;
 }
 
+# if we have traps located like
+#   A
+#  BC - then we can remove C
+# using g_sorted_y and tracking presence A in previous row
+# returns count of deleted traps
+sub rm_3
+{
+  my $l = scalar(@g_sorted_y);
+  return 0 if ( $l < 2 );
+  my $cnt = 0;
+  for ( my $i = 2; $i < $l; $i++ )
+  {
+    if ( $g_sorted_y[$i]->[0] != 1 && # we must be at least at row 2
+         $g_sorted_y[$i]->[0] == $g_sorted_y[$i-1]->[0] && # on the same row with prev
+         $g_sorted_y[$i]->[1] == $g_sorted_y[$i-1]->[1] + 1 
+       )
+    {
+      # find on prev row traps with X == [1]
+      for ( my $j = $i - 2; $j >= 0; $j-- )
+      {
+        last if ( $g_sorted_y[$j]->[0] < $g_sorted_y[$i]->[0] - 1 );
+        next if ( $g_sorted_y[$j]->[0] != $g_sorted_y[$i]->[0] - 1 );
+        if ( $g_sorted_y[$j]->[1] == $g_sorted_y[$i]->[1] )
+        {
+          $cnt++;
+          $g_sorted_y[$i]->[4] = 1; # mark it
+  printf("mark_3 %d %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1]) if ( defined $opt_v );
+          last;
+        }
+      }
+    }
+  }
+  return $cnt;
+}
+
 sub rm_odd
 {
   my $cx = rm_odd_x();
   my $cy = rm_odd_y();
-  return if ( !$cx && !$cy );
+  my $r3 = rm_3();
+  return if ( !$cx && !$cy && !$r3 );
   # remove from g_sorted_y
   my @tmp2;
   foreach ( @g_sorted_y )
@@ -236,53 +272,50 @@ sub rm_odd
   }
 }
 
-sub calc
+sub propagate
 {
-  my $t = shift;
-  return $t->[4] if ( $t->[4] );
-  my $prev_y = find_near_y($t);
-  my $prev_x = find_near_x($t);
-  printf("prev y for %d %d is %d, prev_x %d\n", $t->[0], $t->[1], $prev_y, $prev_x) if ( defined $opt_p );
-  # no previous traps - t is last one
-  if ( -1 == $prev_x && -1 == $prev_y )
+  my($t, $from) = @_;
+  for ( my $i = $from + 1; $i < scalar @g_sorted_x; $i++ )
   {
-     $t->[4] = numberOfPaths($t->[0], $t->[1]);
-     return $t->[4]; 
+    if ( $g_sorted_x[$i]->[0] >= $t->[0] && $g_sorted_x[$i]->[1] >= $t->[1] )
+    {
+      my $diff = $t->[2] * numberOfPaths($g_sorted_x[$i]->[0] - $t->[0] + 1, $g_sorted_x[$i]->[1] - $t->[1] + 1);
+#  printf("prop %d %d: was %d diff %d\n", $g_sorted_x[$i]->[0], $g_sorted_x[$i]->[1], $g_sorted_x[$i]->[2], $diff) 
+#    if ( $g_sorted_x[$i]->[2] < $diff );
+      $g_sorted_x[$i]->[2] -= $diff;
+    }
   }
-  if ( -1 == $prev_x )
+}
+
+sub calc2
+{
+  # calc from_s and to_s
+  foreach ( @g_sorted_x )
   {
-    my $py = $g_sorted_y[$prev_y];
-    my $v = calc($py);
-    $t->[2] = numberOfPaths($t->[0], $t->[1]) if ( !$t->[2] );
-    $t->[4] = $t->[2] - $v * numberOfPaths($t->[0] - $py->[0] + 1, $t->[1] - $py->[1] + 1);
-    return $t->[4];
+    $_->[2] = numberOfPaths($_->[0], $_->[1]); # from_s
+print("init ", $_->[0], " ", $_->[1], " ", $_->[2], "\n");
+    $_->[3] = numberOfPaths($N - $_->[0] + 1, $N - $_->[1] + 1); # to_s
   }
-  if ( -1 == $prev_y )
+  if ( defined $opt_t )
   {
-    my $px = $g_sorted_x[$prev_x];
-    my $v = calc($px);
-    $t->[2] = numberOfPaths($t->[0], $t->[1]) if ( !$t->[2] );
-    $t->[4] = $t->[2] - $v * numberOfPaths($t->[0] - $px->[0] + 1, $t->[1] - $px->[1] + 1);
-    return $t->[4];
+    my $end_time = time();
+    printf("inits: %f\n", $end_time - $begin_time);
   }
-  my $py = $g_sorted_y[$prev_y];
-  my $px = $g_sorted_x[$prev_x];
-  if ( $py == $px )
+  # propagate decreasing of from_s to all traps below and at right
+  for ( my $i = 0; $i < scalar @g_sorted_x; $i++ )
   {
-    my $v = calc($px);
-    $t->[2] = numberOfPaths($t->[0], $t->[1]) if ( !$t->[2] );
-    $t->[4] = $t->[2] - $v * numberOfPaths($t->[0] - $px->[0] + 1, $t->[1] - $px->[1] + 1);
-    return $t->[4];
+    propagate($g_sorted_x[$i], $i);
   }
-  # finally calc both
-  my $vx = calc($px);
-  my $vy = calc($py);
-  $t->[2] = numberOfPaths($t->[0], $t->[1]) if ( !$t->[2] );
-  $t->[4] = $t->[2] - 
-    $vx * numberOfPaths($t->[0] - $px->[0] + 1, $t->[1] - $px->[1] + 1) -
-    $vy * numberOfPaths($t->[0] - $py->[0] + 1, $t->[1] - $py->[1] + 1)
-  ;
-  return $t->[4];
+  if ( defined $opt_t )
+  {
+    my $end_time = time();
+    printf("propagate: %f\n", $end_time - $begin_time);
+  }
+  # calc total diff
+  foreach ( @g_sorted_x )
+  {
+    $Res -= $_->[3] * $_->[2];
+  }
 }
 
 sub usage
@@ -291,6 +324,7 @@ sub usage
 Usage: $0 [options]
 Options:
  -p -- dump paths
+ -r -- dump remained unvisited traps
  -s -- dump sorted vertices
  -t -- dump time of execution
  -v -- verbose mode
@@ -300,18 +334,18 @@ EOF
 }
 
 # MAIN
-my $status = getopts("pstv");
+my $status = getopts("prstv");
 usage() if ( !$status );
-my($N, $str);
+my $str;
 $str = <>;
 chomp $str;
 die if ( $str !~ /(\d+) (\d+)$/ );
 $N = int($1); $g_q = int($2);
 # calc res
-my $Res = numberOfPaths($N, $N);
+$Res = numberOfPaths($N, $N);
 print("initial res ", $Res, "\n");
 my @traps;
-my $begin_time = time();
+$begin_time = time();
 # read traps
 for ( my $i = 0; $i < $g_q; $i++ )
 {
@@ -342,9 +376,7 @@ if ( defined $opt_t )
 }
 # lets calc
 if ( $g_q ) {
-  my $last = [ $N, $N, $Res, 1, 0 ];
-  calc($last);
-  $Res -= $last->[4];
+  calc2();
 }
 if ( defined $opt_t )
 {
@@ -353,3 +385,12 @@ if ( defined $opt_t )
 }
 print $Res;
 printf("\nmod res %d\n", $Res % 1000000007);
+if ( defined $opt_r )
+{
+  printf("remained traps:\n");
+  foreach ( @g_sorted_y )
+  {
+    printf("%d %d - ", $_->[0], $_->[1]);
+    print $_->[2], " % ", $_->[2] % 1000000007, "\n";
+  }
+}
