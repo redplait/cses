@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <unordered_set>
+#include <unordered_map>
 
 #pragma GCC target("sse,sse2,sse3,ssse3,sse4,sse4.2,popcnt,tune=native")
 #pragma GCC optimize("-Ofast")
@@ -34,10 +34,12 @@ struct pair_hash
     }
 };
 
+int g_dump_rem = 1;
+
 struct sq
 {
   vector<int> v;
-  unordered_set<pair<int, int>, pair_hash> traps;
+  unordered_map<pair<int, int>, int, pair_hash> traps;
   int N;
   int *curr, *prev;
   sq(int n):
@@ -46,9 +48,15 @@ struct sq
     fill(v.begin(), v.end(), 0);
     curr = &v[0]; prev = curr + N;
   }
+  void upd_trap(int y, int x, int v)
+  {
+    pair<int, int> p{y-1,x-1};
+    traps[p] = v;
+  }
   void put_trap(int y, int x)
   {
-    traps.insert({y-1,x-1});
+    pair<int, int> p{y-1,x-1};
+    traps.emplace(p, 0);
 #ifdef DEBUG
   printf("%d %d: %d %d\n", y, x, numberOfPaths(y, x), numberOfPaths(N - y + 1, N - x + 1));
 #endif
@@ -57,6 +65,14 @@ struct sq
   {
     for ( int i = 0; i < N; i++ ) printf("%d ", r[i]);
     printf("\n");
+  }
+  void dump_rem()
+  {
+    printf("remained traps:\n");
+    for ( auto &ti: traps )
+    {
+      printf("%d %d - %d\n", 1 + ti.first.first, 1 + ti.first.second, ti.second);
+    }
   }
   // row m and column n
   uint64_t numberOfPaths(int m, int n)
@@ -102,7 +118,11 @@ struct sq
       else curr[0] = prev[0];
       for ( int x = 1; x < N; ++x )
       {
-        if ( is_trap(y, x+1) ) continue;
+        if ( is_trap(y, x+1) )
+        {
+          upd_trap(y, x+1, (prev[x] + curr[x-1]) % mod);
+          continue;
+        }
         curr[x] = (prev[x] + curr[x-1]) % mod;
       }
 #ifdef DEBUG
@@ -137,4 +157,6 @@ int main(int argc, char **argv)
   g.prepare();
   printf("%d\n", g.calc());
 printTime("res");
+  if ( g_dump_rem )
+    g.dump_rem();
 }
