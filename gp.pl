@@ -8,11 +8,13 @@ use Time::HiRes qw( time );
 use bignum;
 
 # var opts
-use vars qw/$opt_v $opt_p $opt_r $opt_s $opt_t/;
+use vars qw/$opt_v $opt_i $opt_p $opt_r $opt_s $opt_t/;
 
 sub numberOfPaths
 {
   my($m,$n) = @_;
+#  return $n if ( 1 == $m );
+#  return $m if ( 1 == $n );
   my $path = 1;
     for ( my $i = $n; $i < ($m + $n - 1); $i++) {
         $path *= $i;
@@ -234,11 +236,77 @@ sub rm_3
   return $cnt;
 }
 
+# mark traps in the same row with [1] <= X
+sub rm_r
+{
+  my($from, $x, $l) = @_;
+  my $res = 0;
+  for ( my $i = $from + 1; $i < $l; $i++ )
+  {
+    last if ( $g_sorted_y[$i]->[0] != $g_sorted_y[$from]->[0] );
+    last if ( $g_sorted_y[$i]->[1] > $x );
+printf("mark_r %d %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1]) if ( defined $opt_v );    
+    $g_sorted_y[$i]->[4] = 1; # mark this trap
+    $res++;
+  }
+  return $res;
+}
+
+# try to find adjacent trap at right and up side
+# return [$X, number of removed traps]
+sub scan_rup
+{
+  my($from, $l) = @_;
+  for ( my $i = $from - 1; $i >= 0; $i-- )
+  {
+    next if ( $g_sorted_y[$i]->[0] == $g_sorted_y[$from]->[0] );
+    last if ( $g_sorted_y[$i]->[0] + 1 < $g_sorted_y[$from]->[0] );
+    if ( $g_sorted_y[$i]->[1] == $g_sorted_y[$from]->[1] + 1 )
+    {
+      my $res = [ $g_sorted_y[$i]->[1], 0 ];
+      $g_sorted_y[$i]->[5] = 1;
+      # try next
+      my $next = scan_rup($i, $l);
+      if ( !defined $next )
+      {
+        printf("rup ends at %d %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1]) if ( defined $opt_v );
+        return $res;
+      }
+      $next->[1] += rm_r($i, $next->[0], $l);
+      return $next;
+    }
+  }
+  return undef;
+}
+
+# generalized version of rm_3
+# uses g_sorted_y and tracking presence Y-1, X+1 in previous row
+# returns number of removed traps
+sub rm_gen
+{
+  my $l = scalar(@g_sorted_y);
+  return 0 if ( $l < 2 );
+  my $res = 0;
+  # scan in back direction
+  for ( my $i = $l - 1; $i >= 0; $i-- )
+  {
+     next if ( $g_sorted_y[$i]->[5] ); # already processed
+     my $xr = scan_rup($i, $l);
+     next if ( !defined $xr );
+ printf("rm_gen %d %d X %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1], $xr->[0]) if ( defined $opt_v );
+     # mark current trap
+     $g_sorted_y[$i]->[5] = 1;
+     $res += $xr->[1];
+     $res += rm_r($i, $xr->[0], $l);
+  }
+  return $res;
+}
+
 sub rm_odd
 {
   my $cx = rm_odd_x();
   my $cy = rm_odd_y();
-  my $r3 = rm_3();
+  my $r3 = rm_gen();
   return if ( !$cx && !$cy && !$r3 );
   # remove from g_sorted_y
   my @tmp2;
@@ -293,7 +361,7 @@ sub calc2
   foreach ( @g_sorted_x )
   {
     $_->[2] = numberOfPaths($_->[0], $_->[1]); # from_s
-print("init ", $_->[0], " ", $_->[1], " ", $_->[2], "\n");
+print("init ", $_->[0], " ", $_->[1], " ", $_->[2], "\n") if defined($opt_i);
     $_->[3] = numberOfPaths($N - $_->[0] + 1, $N - $_->[1] + 1); # to_s
   }
   if ( defined $opt_t )
@@ -323,6 +391,7 @@ sub usage
   print STDERR<<EOF;
 Usage: $0 [options]
 Options:
+ -i -- dump initial values
  -p -- dump paths
  -r -- dump remained unvisited traps
  -s -- dump sorted vertices
@@ -334,7 +403,7 @@ EOF
 }
 
 # MAIN
-my $status = getopts("prstv");
+my $status = getopts("iprstv");
 usage() if ( !$status );
 my $str;
 $str = <>;
@@ -354,8 +423,8 @@ for ( my $i = 0; $i < $g_q; $i++ )
   die if ( $str !~ /(\d+) (\d+)$/ );
   my $y = int($1);
   my $x = int($2);
-  # 0 - y, 1 - x, 2 - from_s, 3 - to_t, 4 - cached calc
-  push @traps, [ $y, $x, 0, 0, 0 ];
+  # indexes: 0 - y, 1 - x, 2 - from_s, 3 - to_t, 4 - marked for removal, 5 - part of chain
+  push @traps, [ $y, $x, 0, 0, 0, 0 ];
 }
 # sort first by Y, then by X in ascending order
 @g_sorted_y = sort { return $a->[0] == $b->[0] ? $a->[1] <=> $b->[1] : $a->[0] <=> $b->[0] } @traps;
