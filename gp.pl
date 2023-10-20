@@ -147,7 +147,7 @@ OUTER:
     for ( my $j = $i + 1; $j < $l; $j++ )
     {
       return $res if ( $g_sorted_y[$i]->[0] != $g_sorted_y[$j]->[0] );
-      if ( $g_sorted_y[$j]->[1] >= $x_min )
+      if ( $g_sorted_y[$j]->[1] >= $x_min || $g_sorted_y[$j]->[1] + 1 == $x_min )
       {
         $x_min = $g_sorted_y[$j]->[1];
         next OUTER;
@@ -192,7 +192,7 @@ OUTER:
     for ( my $j = $i + 1; $j < $l; $j++ )
     {
       return $res if ( $g_sorted_x[$i]->[1] != $g_sorted_x[$j]->[1] );
-      if ( $g_sorted_x[$j]->[0] >= $y_min )
+      if ( $g_sorted_x[$j]->[0] >= $y_min || $g_sorted_x[$j]->[0] + 1 == $y_min )
       {
         $y_min = $g_sorted_x[$j]->[0];
         next OUTER;
