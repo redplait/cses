@@ -8,7 +8,7 @@ use Time::HiRes qw( time );
 use bignum;
 
 # var opts
-use vars qw/$opt_v $opt_i $opt_p $opt_r $opt_s $opt_t/;
+use vars qw/$opt_v $opt_m $opt_i $opt_p $opt_r $opt_s $opt_t/;
 
 sub numberOfPaths
 {
@@ -133,7 +133,7 @@ OUTER:
       {
         $res++;
         $g_sorted_y[$i]->[4] = 1; # mark it
-  printf("mark_y %X %d %d x_min %d\n", $g_sorted_y[$i], $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1], $x_min) if ( defined $opt_v );
+  printf("mark_y %d %d x_min %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1], $x_min) if ( defined $opt_v );
       }
       next;
     }
@@ -178,7 +178,7 @@ OUTER:
       {
         $res++;
         $g_sorted_x[$i]->[4] = 1; # mark it
-  printf("mark_x %X %d %d y_min %d\n", $g_sorted_x[$i], $g_sorted_x[$i]->[0], $g_sorted_x[$i]->[1], $y_min) if ( defined $opt_v );
+  printf("mark_x %d %d y_min %d\n", $g_sorted_x[$i]->[0], $g_sorted_x[$i]->[1], $y_min) if ( defined $opt_v );
       }
       next;
     }
@@ -242,7 +242,7 @@ sub rm_3
 # returns count of removed traps
 sub rm_r
 {
-  my($from, $x, $l) = @_;
+  my($from, $x, $l, $v) = @_;
   my $res = 0;
   for ( my $i = $from + 1; $i < $l; $i++ )
   {
@@ -250,7 +250,33 @@ sub rm_r
     last if ( $g_sorted_y[$i]->[0] != $g_sorted_y[$from]->[0] );
     last if ( $g_sorted_y[$i]->[1] > $x );
 printf("mark_r %d %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1]) if ( defined $opt_v );    
-    $g_sorted_y[$i]->[4] = 1; # mark this trap
+    $g_sorted_y[$i]->[4] = $v; # mark this trap
+    $res++;
+  }
+  return $res;
+}
+
+sub rm_r2
+{
+  my($from, $x, $l, $v) = @_;
+  my $res = 0;
+  my $fr = $g_sorted_y[$from]->[5];
+  for ( my $i = $from + 1; $i < $l; $i++ )
+  {
+    # check if Y is still the same
+    last if ( $g_sorted_y[$i]->[0] != $g_sorted_y[$from]->[0] );
+    last if ( $g_sorted_y[$i]->[1] > $x );
+    if ( $g_sorted_y[$i]->[5] == $fr ) {
+      # we can remove it only if got chain from it`s upper neightbour 
+      if ( defined $g_sorted_y[$i]->[6] )
+      {
+        $g_sorted_y[$i]->[4] = 4;
+        $res++;
+      }
+      next; 
+    }
+printf("mark_r2 %d %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1]) if ( defined $opt_v );    
+    $g_sorted_y[$i]->[4] = $v; # mark this trap
     $res++;
   }
   return $res;
@@ -290,16 +316,20 @@ sub scan_rup
       next if ( !defined $next );
       printf("rup(%d, %d) upper cell at %d %d\n", $ct->[0], $ct->[1], 
         $next->[0]->[0], $next->[0]->[1]) if ( defined $opt_v );
-      $myres->[1] += rm_r($from, $next->[0]->[1], $l) if ( $ct->[0] != $next->[0]->[0]);
+      $myres->[1] += rm_r($from, $next->[0]->[1], $l, 2) if ( $ct->[0] != $next->[0]->[0]);
       $myres->[1] += $next->[1];
-      $myres->[0] = $next->[0] if ( $next->[0]->[1] > $myres->[0]->[1] );
+      if ( $next->[0]->[1] > $myres->[0]->[1] )
+      {
+        $myres->[0] = $next->[0];
+        $ct->[6] = $g_sorted_y[$i] if ( $g_sorted_y[$i]->[1] == $ct->[1] );
+      }
     }
   }
   # mark this trap as visited
   $ct->[5] = $myres->[0];
   printf("rup(%d, %d) ends at %d %d\n", $ct->[0], $ct->[1],
     $myres->[0]->[0], $myres->[0]->[1]) if ( defined $opt_v && $ct->[5] != $ct );
-  $myres->[1] += rm_r($from, $myres->[0]->[1], $l) if ( $ct->[0] != $myres->[0]->[0]);
+  $myres->[1] += rm_r2($from, $myres->[0]->[1], $l, 3) if ( $ct->[0] != $myres->[0]->[0]);
   return $myres;
 }
 
@@ -315,6 +345,7 @@ sub rm_gen
   for ( my $i = $l - 1; $i >= 0; $i-- )
   {
      next if ( defined $g_sorted_y[$i]->[5] ); # already processed
+     next if ( $g_sorted_y[$i]->[4] );
      my $xr = scan_rup($i, $l);
      next if ( !defined $xr || $g_sorted_y[$i] == $xr->[0] );
  printf("rm_gen %d %d X %d\n", $g_sorted_y[$i]->[0], $g_sorted_y[$i]->[1], $xr->[0]->[1]) if ( defined $opt_v );
@@ -323,11 +354,38 @@ sub rm_gen
   return $res;
 }
 
+sub dump_map
+{
+  my $cl = 1;
+  my $str;
+  for ( my $i = 0; $i < scalar @g_sorted_y; $i++ )
+  {
+    if ( $g_sorted_y[$i]->[0] != $cl )
+    {
+      printf("%s\n", $str) if defined($str);
+      printf("\n") if ( $g_sorted_y[$i]->[0] > $cl + 1 );
+      $cl = $g_sorted_y[$i]->[0];
+      undef $str;
+    }
+    $str = ' ' x $N if ( !defined $str );
+    my $c = 'X';
+    $c = 'd' if ( $g_sorted_y[$i]->[4] == 1 );
+    $c = 'r' if ( $g_sorted_y[$i]->[4] == 2 );
+    $c = '?' if ( $g_sorted_y[$i]->[4] == 3 );
+    $c = '+' if ( $g_sorted_y[$i]->[4] == 4 );
+    $c = '@' if ( $g_sorted_y[$i]->[0] == 56 && $g_sorted_y[$i]->[1] == 96 );
+    substr($str, $g_sorted_y[$i]->[1] - 1, 1, $c);
+  }
+  # last one
+  printf("%s\n", $str) if defined($str);
+}
+
 sub rm_odd
 {
   my $cx = rm_odd_x();
   my $cy = rm_odd_y();
   my $r3 = rm_gen();
+  dump_map() if ( defined $opt_m );
   return if ( !$cx && !$cy && !$r3 );
   # remove from g_sorted_y
   my @tmp2;
@@ -341,9 +399,10 @@ sub rm_odd
     printf("sorted_y with removed odd traps size %d:\n", scalar @g_sorted_y);
     foreach ( @g_sorted_y )
     {
-      printf("y %d x %d\n", $_->[0], $_->[1]);
+      printf("y %d x %d up %d\n", $_->[0], $_->[1], defined($_->[6]) ? 1 : 0);
     }
   }
+  exit(0) if ( defined $opt_m );
   # remove from g_sorted_x
   my @tmp;
   foreach ( @g_sorted_x )
@@ -415,6 +474,7 @@ sub usage
 Usage: $0 [options]
 Options:
  -i -- dump initial values
+ -m -- dump traps map
  -p -- dump paths
  -r -- dump remained unvisited traps
  -s -- dump sorted vertices
@@ -426,7 +486,7 @@ EOF
 }
 
 # MAIN
-my $status = getopts("iprstv");
+my $status = getopts("imprstv");
 usage() if ( !$status );
 my $str;
 $str = <>;
@@ -447,7 +507,8 @@ for ( my $i = 0; $i < $g_q; $i++ )
   my $y = int($1);
   my $x = int($2);
   # indexes: 0 - y, 1 - x, 2 - from_s, 3 - to_t, 4 - marked for removal, 5 - part of chain
-  push @traps, [ $y, $x, 0, 0, 0, undef ];
+  # 6 if you got chain from upper element
+  push @traps, [ $y, $x, 0, 0, 0, undef, undef ];
 }
 # sort first by Y, then by X in ascending order
 @g_sorted_y = sort { return $a->[0] == $b->[0] ? $a->[1] <=> $b->[1] : $a->[0] <=> $b->[0] } @traps;
@@ -473,9 +534,7 @@ if ( defined $opt_t )
   printf("read traps: %f\n", $end_time - $begin_time);
 }
 # lets calc
-if ( $g_q ) {
-  calc2();
-}
+if ( $g_q ) { calc2(); }
 if ( defined $opt_t )
 {
   my $end_time = time();
