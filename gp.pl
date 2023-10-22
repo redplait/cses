@@ -125,7 +125,7 @@ sub rm_odd_x
   my $x_min = $g_sorted_y[0]->[1];
   my $res = 0;
 OUTER:
-  for ( my $i = 1; $i < $l; $i++ )
+  for ( my $i = 1; $i < $l && $x_min < $N; $i++ )
   {
     if ( $g_sorted_y[$i]->[0] == $g_sorted_y[$i-1]->[0] ) # yep, it`s still the same row
     {
@@ -139,17 +139,20 @@ OUTER:
     }
     last if ( $g_sorted_y[$i]->[0] != $g_sorted_y[$i-1]->[0] + 1 ); # if next trap not on following row
     # lets find new x_min on this row >= current x_min
-    if ( $g_sorted_y[$i]->[1] >= $x_min )
+    if ( $g_sorted_y[$i]->[1] >= $x_min || $g_sorted_y[$i]->[1] + 1 == $x_min )
     {
       $x_min = $g_sorted_y[$i]->[1];
       next;
     }
+    # check if this is not last trap in this row
+    last if ( $i != $l - 1 && $g_sorted_y[$i+1]->[0] != $g_sorted_y[$i]->[0]);
     for ( my $j = $i + 1; $j < $l; $j++ )
     {
       return $res if ( $g_sorted_y[$i]->[0] != $g_sorted_y[$j]->[0] );
       if ( $g_sorted_y[$j]->[1] >= $x_min || $g_sorted_y[$j]->[1] + 1 == $x_min )
       {
         $x_min = $g_sorted_y[$j]->[1];
+        $i = $j; # continue with next trap after new x_min
         next OUTER;
       }
     }
@@ -170,7 +173,7 @@ sub rm_odd_y
   my $y_min = $g_sorted_x[0]->[0];
   my $res = 0;
 OUTER:
-  for ( my $i = 1; $i < $l; $i++ )
+  for ( my $i = 1; $i < $l && $y_min < $N; $i++ )
   {
     if ( $g_sorted_x[$i]->[1] == $g_sorted_x[$i-1]->[1] ) # yep, it`s still the same column
     {
@@ -184,17 +187,20 @@ OUTER:
     }
     last if ( $g_sorted_x[$i]->[1] != $g_sorted_x[$i-1]->[1] + 1 ); # if next trap not on following column
     # lets find new y_min on this column >= current y_min
-    if ( $g_sorted_x[$i]->[0] >= $y_min )
+    if ( $g_sorted_x[$i]->[0] >= $y_min || $g_sorted_x[$i]->[0] + 1 == $y_min )
     {
       $y_min = $g_sorted_x[$i]->[0];
       next;
     }
+    # check if this is not last trap in this column
+    last if ( $i != $l - 1 && $g_sorted_x[$i+1]->[1] != $g_sorted_x[$i]->[1]);
     for ( my $j = $i + 1; $j < $l; $j++ )
     {
       return $res if ( $g_sorted_x[$i]->[1] != $g_sorted_x[$j]->[1] );
       if ( $g_sorted_x[$j]->[0] >= $y_min || $g_sorted_x[$j]->[0] + 1 == $y_min )
       {
         $y_min = $g_sorted_x[$j]->[0];
+        $i = $j; # continue with next trap below new y_min
         next OUTER;
       }
     }
