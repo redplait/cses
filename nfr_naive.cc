@@ -110,6 +110,15 @@ printf("add_con for %d\n", 1+n->n);
       dfs(&nodes[num],c);
     }
   }
+  void test_dfs_rev(node *n, int &res)
+  {
+    for ( auto num: n->in_edges )
+    {
+      if ( visited[num] ) continue;
+      visited[num] = 1; res++;
+      test_dfs_rev(&nodes[num], res);
+    }
+  }
   void test_dfs(node *n, int &res)
   {
     for ( auto num: n->edges )
@@ -119,12 +128,8 @@ printf("add_con for %d\n", 1+n->n);
       test_dfs(&nodes[num], res);
     }
   }
-  int test()
+  void dump_test()
   {
-    int res = 1;
-    visited[0] = 1;
-    test_dfs(&nodes[0], res);
-    if ( res == N_size ) return 0;
     set<con *> missed;
     for ( int i = 0; i < N_size; i++ )
     {
@@ -135,7 +140,28 @@ printf("add_con for %d\n", 1+n->n);
       printf("not connected %p via %d\n", cs, i + 1);
       missed.insert(cs);
     }
-    return (int)missed.size();
+  }
+  // return 1 if all tests passed
+  int test()
+  {
+    int r = 1;
+    int res = 1;
+    visited[0] = 1;
+    test_dfs(&nodes[0], res);
+#ifdef DEBUG
+ printf("test_direct: %d\n", res);
+#endif
+    if ( res != N_size )
+    { r = 0; puts("direct test failed!"); dump_test();}
+    fill(visited.begin(), visited.end(), 0);
+    visited[0] = 1; res = 1;
+    test_dfs_rev(&nodes[0], res);
+#ifdef DEBUG
+ printf("test_reverse: %d\n", res);
+#endif
+    if ( res != N_size )
+    { r = 0; puts("reverse test failed!"); dump_test();}
+    return r;
   }
   void dump_cons()
   {
@@ -198,7 +224,7 @@ printf("add_con for %d\n", 1+n->n);
     if ( n0 + l_n0 )
     {
 #ifdef DEBUG
- printf("n0 %ld l_n0 %d\n", n0, l_n0);
+ printf("n0 %ld l_n0 %ld\n", n0, l_n0);
 #endif
      for ( i = 0; i < cons.size(); ++i )
      {
