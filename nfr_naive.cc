@@ -118,12 +118,6 @@ printf("add_con for %d\n", 1+n->n);
       visited[num] = 1; res++;
       test_dfs(&nodes[num], res);
     }
-    for ( auto num: n->in_edges )
-    {
-      if ( visited[num] ) continue;
-      visited[num] = 1; res++;
-      test_dfs(&nodes[num], res);
-    }
   }
   int test()
   {
