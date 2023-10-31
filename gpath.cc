@@ -14,6 +14,8 @@ using namespace std;
 #define mod 1000000007
 #define IT int64_t
 
+// ripped from https://www.geeksforgeeks.org/compute-ncrp-using-fermat-little-theorem/
+// idea https://medium.com/@sudsjaiswal/day-5-combinatorics-and-modulo-by-prime-numbers-b38ed3935d43
 const int mxn = 2e6 + 5;
 IT fact[mxn + 1];
 IT pw(IT a, IT b){
