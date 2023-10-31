@@ -14,6 +14,24 @@ using namespace std;
 #define mod 1000000007
 #define IT int64_t
 
+const int mxn = 2e6 + 5;
+IT fact[mxn + 1];
+IT pw(IT a, IT b){
+    IT res = 1;
+    for(;b;b >>= 1){
+        if(b & 1){
+            res = (res * a) % mod;
+        }
+        a = (a * a) % mod;
+    }
+    return(res);
+}
+IT choose(int k, int n){
+    IT dem = (fact[k] * fact[n - k]) % mod;
+    dem = pw(dem, mod - 2);
+    return((fact[n] * dem) % mod);
+}
+
 IT xGCD(IT a, IT b, IT &x, IT &y) {
     if (b == 0) {
         x = 1;
@@ -35,17 +53,7 @@ IT inverse(IT a) {
 
 IT numberOfPaths(int m, int n)
 {
-    // We have to calculate m+n-2 C n-1 here
-    // which will be (m+n-2)! / (n-1)! (m-1)!
-    IT path = 1, rem = 1;
-    for (int i = n; i < (m + n - 1); i++) {
-        path = path * (IT)i % mod;
- // from https://stackoverflow.com/questions/35226781/finding-binomial-coefficient-for-large-n-and-k-modulo-m
- // (a / b) mod m is equal to (a * b^-1) mod m
-        rem = rem * (i - n + 1) % mod;
-    }
-    path = path * inverse(rem) % mod;
-    return path;
+  return choose(m - 1, m + n - 2);
 }
 
 inline float getTime()
@@ -357,6 +365,10 @@ int main(int argc, char **argv)
   int n, m;
   cin>>n>>m;
   sq g(n);
+  fact[0] = 1;
+  for(int i = 1; i <= n + n; i++) {
+    fact[i] = (fact[i - 1] * i) % mod;
+  }
   for ( int i = 0; i < m; ++i )
   {
     int a,b;
