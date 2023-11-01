@@ -316,7 +316,7 @@ struct sq
     rm_odd_x(); rm_odd_y(); rm_gen();
 #ifdef DEBUG
  dump_map();
-#endif     
+#endif
     // remove marked for deletion
     auto yend = remove_if(sorted_y.begin(), sorted_y.end(), [](const trap *a) { return a->del; });
     sorted_y.erase(yend, sorted_y.end());
@@ -347,7 +347,7 @@ struct sq
       t->to_t = numberOfPaths(N - t->y + 1, N - t->x + 1);
     // if ( t->y == 56 && t->x == 96 ) printf("init %d %d from_s %s to_t %s\n", t->y, t->x, t->from_s.get_str().c_str(), t->to_t.get_str().c_str());
     }
-printTime("init");    
+printTime("init");
     for ( size_t i = 0; i < sorted_y.size(); ++i )
       propagate(sorted_y[i], i);
 printTime("propagate");
