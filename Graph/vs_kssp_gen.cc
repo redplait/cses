@@ -112,7 +112,7 @@ printTime("start");
   int what = 0;
   if ( argc > 1 )
   {
-    int what = atoi(argv[1]);
+    what = atoi(argv[1]);
     if ( !what ) usage(argv[0]);
   }
   switch(what)
