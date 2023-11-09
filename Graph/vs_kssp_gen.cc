@@ -14,6 +14,7 @@
 #include "parsimonious_sidetrack_based.h"
 
 using namespace std;
+typedef int64_t CT;
 
 inline float getTime()
 {
@@ -38,11 +39,11 @@ template <typename T>
 struct Kth: public IKth
 {
   T *w = nullptr;
-  Kth(directed_graph::DirectedGraph<int,int> *g, int ssource, int ttarget)
+  Kth(directed_graph::DirectedGraph<int,CT> *g, int ssource, int ttarget)
   {
     w = new T(g, ssource, ttarget);
   }
-  Kth(directed_graph::DirectedGraph<int,int> *g, int ssource, int ttarget, int version)
+  Kth(directed_graph::DirectedGraph<int,CT> *g, int ssource, int ttarget, int version)
   {
     w = new T(g, ssource, ttarget, version, false);
   }
@@ -50,7 +51,7 @@ struct Kth: public IKth
   {
     res.clear();
     auto first = w->next_path();
-    int p_cost = first.second;
+    CT p_cost = first.second;
     if ( !p_cost ) return false;
     for ( auto v: first.first ) res.insert(v);
     while ( !w->empty() )
@@ -96,7 +97,7 @@ int main(int argc, char **argv)
   ios_base::sync_with_stdio(0); cin.tie(0);cout.tie(0);
   int n, m;
   cin>>n>>m;
-  directed_graph::DirectedGraph<int,int> g(n);
+  directed_graph::DirectedGraph<int,CT> g(n);
   for ( int i = 0; i < m; ++i )
   {
     int a, b, k;
@@ -108,25 +109,26 @@ int main(int argc, char **argv)
 #endif
 printTime("start");
   IKth *kth;
+  int what = 0;
   if ( argc > 1 )
   {
     int what = atoi(argv[1]);
     if ( !what ) usage(argv[0]);
-    switch(what)
-    {
-      case 1: kth = new Kth<kssp::Yen<int, int> >(&g, 0, n-1); break;
-      case 2: kth = new Kth<kssp::NodeClassification<int, int> >(&g, 0, n-1); break;
-      case 3: kth = new Kth<kssp::PostponedNodeClassification<int, int> >(&g, 0, n-1); break;
-      case 4: kth = new Kth<kssp::PostponedNodeClassificationStar<int, int> >(&g, 0, n-1); break;
-      case 5: kth = new Kth<kssp::ParsimoniousSidetrackBased<int, int> >(&g, 0, n-1, 1); break;
-      case 6: kth = new Kth<kssp::ParsimoniousSidetrackBased<int, int> >(&g, 0, n-1, 2); break;
-      case 7: kth = new Kth<kssp::ParsimoniousSidetrackBased<int, int> >(&g, 0, n-1, 3); break;
-      case 8: kth = new Kth<kssp::SidetrackBased<int, int> >(&g, 0, n-1, 1); break;
-      case 9: kth = new Kth<kssp::SidetrackBased<int, int> >(&g, 0, n-1, 4); break;
+  }
+  switch(what)
+  {
+      case 0:
+      case 1: kth = new Kth<kssp::Yen<int, CT> >(&g, 0, n-1); break;
+      case 2: kth = new Kth<kssp::NodeClassification<int, CT> >(&g, 0, n-1); break;
+      case 3: kth = new Kth<kssp::PostponedNodeClassification<int, CT> >(&g, 0, n-1); break;
+      case 4: kth = new Kth<kssp::PostponedNodeClassificationStar<int, CT> >(&g, 0, n-1); break;
+      case 5: kth = new Kth<kssp::ParsimoniousSidetrackBased<int, CT> >(&g, 0, n-1, 1); break;
+      case 6: kth = new Kth<kssp::ParsimoniousSidetrackBased<int, CT> >(&g, 0, n-1, 2); break;
+      case 7: kth = new Kth<kssp::ParsimoniousSidetrackBased<int, CT> >(&g, 0, n-1, 3); break;
+      case 8: kth = new Kth<kssp::SidetrackBased<int, CT> >(&g, 0, n-1, 1); break;
+      case 9: kth = new Kth<kssp::SidetrackBased<int, CT> >(&g, 0, n-1, 4); break;
       default: usage(argv[0]);
-    }
-  } else
-    kth = new Kth<kssp::Yen<int, int> >(&g, 0, n-1);
+  }
   set<int> cands;
   kth->run(cands);
 printTime("end");
