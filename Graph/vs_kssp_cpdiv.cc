@@ -227,6 +227,15 @@ printTime("cutpoints");
       prev_cp = path[i];
       curr.clear();
     }
+    if ( !curr.empty() )
+    {
+      short_cycles++;
+      curr.insert(prev_cp);
+      IKth *kth = get_kth(prev_cp, n-1);
+      kth->run(curr);
+      for ( auto survived: curr ) cands.insert(survived);
+      delete kth;
+    }
     // insert target
     cands.insert(n-1);
 printTime("divided end");
