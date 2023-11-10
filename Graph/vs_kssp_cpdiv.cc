@@ -6,6 +6,8 @@
 #include <limits.h>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
+#include <algorithm>
 // kssp library from https://gitlab.inria.fr/dcoudert/k-shortest-simple-paths
 #include "yen.h"
 #include "sidetrack_based.h"
@@ -35,10 +37,23 @@ struct cutpoints
   vector<int> tin, fup;
   vector<char> visited;
   int timer;
-  unordered_set<int> res;
+  unordered_map<int, vector<int> > res;
   cutpoints(directed_graph::DirectedGraph<int,CT> *g):
     m_g(g), tin(g->order()), fup(g->order()), visited(g->order()), timer(0)
   {}
+  void filter_res(const vector<int> &path)
+  {
+    unordered_set<int> tmp;
+    for ( auto cit = path.cbegin(); cit != path.end(); ++cit )
+      tmp.insert(*cit);
+    for ( auto it = res.begin(); it != res.end(); )
+    {
+      if ( none_of(it->second.begin(), it->second.end(), [&tmp](int v) { auto tit = tmp.find(v); return tit != tmp.end(); }) )
+        it = res.erase(it);
+      else
+        ++it;
+    }
+  }
   // based on https://e-maxx.ru/algo/cutpoints
   // complexity O(V + E)
   void dfs(int v, int p = -1)
@@ -58,12 +73,12 @@ struct cutpoints
         dfs(to, v);
         fup[v] = min(fup[v], fup[to]);
         if (fup[to] >= tin[v] && p != -1)
-          res.insert(v);
+          res[v].push_back(to);
         ++children;
       }
     }
     if (p == -1 && children > 1)
-      res.insert(v);
+      res[v].push_back(v); // root will ref to itself
   }
 };
 
@@ -184,6 +199,8 @@ printTime("cutpoints");
     dijkstra::Dijkstra d(&g, 0, false);
     d.run(n-1);
     auto path = d.get_path(n-1);
+    cp.filter_res(path);
+  printf("filtered cutpoint: %ld\n", cp.res.size());
     int prev_cp = 0;
     cands.insert(prev_cp);
     // lets traverse found shortest path and divide it on cutpoint, all vertices between cutpoints store to curr
