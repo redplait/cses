@@ -13,6 +13,12 @@
 #include "postponed_node_classification_star.h"
 #include "parsimonious_sidetrack_based.h"
 
+// naive solution for Visiting Cities based on famly of algos for K-th shortest path from inria kssp library
+// it seems that
+// 1) kssp isn`t capable to process such not very big sets of data
+// 2) and even worse - different algos families gave totally different results
+// some details here: http://redplait.blogspot.com/2023/11/kssp-library.html
+
 using namespace std;
 typedef int64_t CT;
 
