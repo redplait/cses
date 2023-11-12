@@ -16,6 +16,13 @@
 #include "postponed_node_classification_star.h"
 #include "parsimonious_sidetrack_based.h"
 
+// second try to use kssp
+// I made wrong assumption to reduce sizes of input data dividing it on cut-points
+// Why it is wrong - lets assume that we have only 2 shortest paths withoud sharing any common vertex (sure except source and target)
+// then cut-poiint from first path does not affect second and vice versa
+// Anyway kssp even on such reduced input data is too slow and again shows different results
+// see details here: http://redplait.blogspot.com/2023/11/kssp-library-part-2.html
+
 using namespace std;
 typedef int64_t CT;
 
