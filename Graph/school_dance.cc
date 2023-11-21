@@ -71,10 +71,15 @@ struct bipartite_matching {
         }
         return flow;
     }
-    void get_edges(vector<pair<int, int> > &ans) {
+    void get_edges(vector<pair<int, int> > &ans, int need_swap) {
         for (int u = 0; u < n_left; ++u)
             if (match_from_left[u] != -1)
+            {
+              if ( need_swap )
+                ans.emplace_back(match_from_left[u], u);
+              else
                 ans.emplace_back(u, match_from_left[u]);
+            }
     }
 };
 
@@ -94,18 +99,27 @@ int main() {
     ios_base::sync_with_stdio(0); cin.tie(0);cout.tie(0);
     int n_left, n_right, k;
     cin>>n_left>>n_right>>k;
-    bipartite_matching matching(n_right, n_left);
+    int need_swap = 0;
+    if ( n_left > n_right )
+    {
+      swap(n_left, n_right);
+      need_swap = 1;
+    }
+    bipartite_matching matching(n_left, n_right);
     for ( int i = 0; i < k; i++ )
     {
         if ( cin.eof() ) break;
         int u, v;
         cin>>u>>v;
-        matching.add(v-1, u-1);
+        if ( need_swap )
+          matching.add(v-1, u-1);
+        else
+          matching.add(u-1, v-1);
     }
 printTime("read");
     printf("%d\n", matching.get_max_matching());
     vector<pair<int, int> > ans;
-    matching.get_edges(ans);
+    matching.get_edges(ans, need_swap);
 printTime("calc");
-    for (auto &p : ans ) printf("%d %d\n", p.second+1, p.first+1);
+    for (auto &p : ans ) printf("%d %d\n", p.first+1, p.second+1);
 }
