@@ -2,6 +2,7 @@
 # simple and dirty script to generate graph viz output for CSES graph tasks
 use strict;
 use warnings;
+no warnings 'recursion';
 use Getopt::Std;
 use Data::Dumper;
 
@@ -226,6 +227,45 @@ sub compact
   return $res;
 }
 
+# find connectivity component for vertex id and remove all remained vertices
+sub find_cs
+{
+  my $id = shift;
+  my @vis = (0) x (1 + $g_N);
+  my $dfs = sub {
+    my($vid, $dfs) = @_;
+    return if ( $vis[$vid] );
+    return if ( !exists $G{$vid} );
+    $vis[$vid] = 1;
+    my $v = $G{$vid};
+    if ( defined $v->[1] )
+    {
+      foreach ( keys %{$v->[1]} )
+      {
+        $dfs->($_, $dfs) if ( !$vis[$_] );
+      }
+    }
+    if ( defined $v->[2] )
+    {
+      foreach ( keys %{$v->[2]} )
+      {
+        $dfs->($_, $dfs) if ( !$vis[$_] );
+      }
+    }
+  };
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( $vis[$i] );
+    $dfs->($i, $dfs);
+  }
+  # remove all non-visited
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    delete $G{$i} if ( !$vis[$i] );
+  }
+}
+
+
 # main
 my $status = getopts("dcCV:");
 usage() if ( !$status );
@@ -246,7 +286,13 @@ while( $str = <> )
 }
 # print Dumper(\%G);
 # process
-compact() if defined($opt_c); 
+compact() if defined($opt_c);
+if ( defined $opt_V )
+{
+  my $vid = int($opt_V);
+  die("cannot find vertex $opt_V") if ( !exists $G{$vid});
+  find_cs($vid);
+} 
 # dump results
 dump_head();
 if ( defined $opt_d )
