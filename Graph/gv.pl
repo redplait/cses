@@ -265,6 +265,53 @@ sub find_cs
   }
 }
 
+# cut-points, based on https://e-maxx.ru/algo/cutpoints
+sub find_cutpoints
+{
+  my $res = shift;
+  my @vis = (0) x (1 + $g_N);
+  my @tin = (0) x (1 + $g_N);
+  my @fup = (0) x (1 + $g_N);
+  my $timer = 0;
+  my $dfs = sub {
+    my($vid, $p, $dfs) = @_;
+    return if ( !exists $G{$vid} );
+    $vis[$vid] = 1;
+    $tin[$vid] = $fup[$vid] = $timer++;
+    my $v = $G{$vid};
+    my $children = 0;
+    return if ( !defined $v->[1] );
+    foreach ( keys %{$v->[1]} )
+    {
+      next if ( $_ == $vid || $_ == $p );
+      if ( $vis[$_] )
+      {
+        $fup[$vid] = ($fup[$vid] < $tin[$_]) ? $fup[$vid] : $tin[$_];
+      } else {
+        $dfs->($_, $vid, $dfs);
+        $fup[$vid] = ($fup[$vid] < $fup[$_]) ? $fup[$vid] : $fup[$_];
+        $res->{$vid} = 1 if ( $fup[$_] >= $tin[$vid] && $p );
+        $children++;
+      }
+    }
+    $res->{$vid} = 1 if ( !$p && $children > 1 );
+  };
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( $vis[$i] );
+    $dfs->($i, 0, $dfs);
+  }
+}
+
+sub dump_cp
+{
+  my %cp;
+  find_cutpoints(\%cp);
+  foreach my $i ( keys %cp )
+  {
+    printf(" v%d [color = cyan];\n", $i);
+  }
+}
 
 # main
 my $status = getopts("dcCV:");
@@ -300,6 +347,7 @@ if ( defined $opt_d )
   dump_st();
   dump_dir();
 } else {
+  dump_cp() if ( defined $opt_C );
   dump_graph();
 }
 printf("}");
