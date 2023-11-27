@@ -211,14 +211,8 @@ sub dump_graph
   }
 }
 
-sub dump_condencated
+sub dump_cs
 {
-  my $cs_cnt = scalar keys %g_scc;
-  if ( !$cs_cnt ) {
-    dump_graph();
-    return;
-  }
-  # dump cs
   while (my ($key, $value) = each (%g_scc) )
   {
     printf("v%d [shape=box]; /*", $value->[0]);
@@ -228,6 +222,17 @@ sub dump_condencated
     }
     printf(" */\n");
   }
+}
+
+sub dump_condencated
+{
+  my $cs_cnt = scalar keys %g_scc;
+  if ( !$cs_cnt ) {
+    dump_graph();
+    return;
+  }
+  # dump cs
+  dump_cs();
   # dump links for non-cs vertices
   foreach my $i ( 1 .. 1+$g_N )
   {
@@ -265,6 +270,50 @@ sub dump_dir
     foreach my $e ( keys %$out )
     {
       printf("v%d -> v%d;\n", $i, $e);
+    }
+  }
+}
+
+sub dump_dir_cond
+{
+  my $cs_cnt = scalar keys %g_scc;
+  if ( !$cs_cnt ) {
+    dump_dir();
+    return;
+  }
+  # dump cs
+  dump_cs();
+  # dump edges
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( !exists $G{$i} );
+    my $v = $G{$i};
+    next if ( !defined $v->[1]);
+    my $out = $v->[1];
+    my %vcache;
+    foreach my $e ( keys %$out )
+    {
+      my $tov = $G{$e};
+      # we have 4 cases here
+      if ( defined $v->[3] )
+      {
+        if ( defined $tov->[3] )
+        {
+          next if ( $v->[3] == $tov->[3] ); # this is edge inside the same SCC
+          printf("v%d -> v%d;\n", $v->[3]->[0], $tov->[3]->[0]);
+        } else {
+          printf("v%d -> v%d;\n", $v->[3]->[0], $e);
+        }
+      } else {
+        if ( defined $tov->[3] )
+        {
+          next if ( exists $vcache{$tov->[3]->[0]} );
+          printf("v%d -> v%d;\n", $i, $tov->[3]->[0]);
+          $vcache{$tov->[3]->[0]} = 1;
+        } else {
+          printf("v%d -> v%d;\n", $i, $e);
+        }
+      }
     }
   }
 }
@@ -383,6 +432,75 @@ sub find_cutpoints
   }
 }
 
+# remove all scc with only node bcs they are useless
+sub del_odd_sccs
+{
+  my @rem;
+  while (my ($key, $value) = each (%g_scc) )
+  {
+    if ( 1 == scalar keys %{ $value->[1] } ) {
+      push @rem, $key;
+      my $v = $G{ $value->[0] };
+      $v->[3] = undef;
+    }
+  }
+  delete $g_scc{$_} foreach ( @rem );
+}
+
+# condensate directed graph
+# based on Kosaraju algo: https://e-maxx.ru/algo/strong_connected_components
+sub cond_dir
+{
+  my @vis = (0) x (1 + $g_N);
+  my @stack;
+  my $dfs = sub {
+    my($vid, $dfs) = @_;
+    return if ( !exists $G{$vid} );
+    $vis[$vid] = 1;
+    my $v = $G{$vid};
+    # process all neighbors via out-edges
+    if ( defined $v->[1] )
+    {
+      foreach ( keys %{$v->[1]} )
+      {
+        next if ( $vis[$_] || !exists($G{$_}) );
+        $dfs->($_, $dfs);
+      }
+    }
+    push @stack, $vid;
+  };
+  # make vertices order in stack
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( $vis[$i] || !exists($G{$i}) );
+    $dfs->($i, $dfs);
+  }
+  # collect SCC
+  @vis = (0) x (1 + $g_N);
+  my $sc_idx = 0;
+  my $dfs2 = sub {
+    my($vid, $dfs) = @_;
+    $vis[$vid] = 1;
+    my $v = $G{$vid};
+    $v->[3] = add2scc($sc_idx, $vid);
+    return if ( !defined $v->[2] );
+    foreach ( keys %{$v->[2]} )
+    {
+      next if ( $vis[$_] || !exists($G{$_}) );
+      $dfs->($_, $dfs);
+    }
+  };
+  while( @stack )
+  {
+    my $v = pop @stack;
+    last if ( !defined $v );
+    next if ( $vis[$v] || !exists($G{$v}) );
+    $dfs2->($v, $dfs2 );
+    $sc_idx++;
+  }
+  del_odd_sccs();
+}
+
 # condensate undirected graph
 # first find cut-points
 # then run waves for remained vertices ignoring cut-points
@@ -413,17 +531,7 @@ sub cond_undir
     $dfs->($i, $dfs);
     $cc_idx++;
   }
-  # remove all scc with only node bcs they are useless
-  my @rem;
-  while (my ($key, $value) = each (%g_scc) )
-  {
-    if ( 1 == scalar keys %{ $value->[1] } ) {
-      push @rem, $key;
-      my $v = $G{ $value->[0] };
-      $v->[3] = undef;
-    }
-  }
-  delete $g_scc{$_} foreach ( @rem );
+  del_odd_sccs();
 }
 
 sub dump_cp
@@ -467,6 +575,8 @@ if ( defined $opt_k )
 {
   if ( !defined $opt_d ) {
     cond_undir();
+  } else {
+    cond_dir();
   }
 }
 # dump results
@@ -474,7 +584,11 @@ dump_head();
 if ( defined $opt_d )
 {
   dump_st();
-  dump_dir();
+  if ( defined $opt_k ) {
+    dump_dir_cond();
+  } else {
+    dump_dir();
+  }
 } else {
   dump_cp() if ( defined $opt_C );
   if ( defined $opt_k ) {
