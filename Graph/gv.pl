@@ -15,7 +15,44 @@ my $g_N = 0;
 # 0 - id
 # 1 - map with out edges
 # 2 - map with in edges (for directed graphs)
+# 3 - ref to scc which vertex belongs to
 my %G; 
+
+# map of Strongly Connected Components
+# key is just some number
+# value is ref to array with indexes
+# 0 - smallest vertex id
+# 1 - map of vertices
+my %g_scc;
+
+# add vertex vid to SCC with index cid
+# return ref to SCC
+sub add2scc
+{
+  my($cid, $vid) = @_;
+  if ( !exists $g_scc{$cid} )
+  {
+    my $new_cc = [ $vid, { } ];
+    $new_cc->[1]->{$vid} = 1;
+    $g_scc{$cid} = $new_cc;
+    return $new_cc;
+  }
+  my $cc = $g_scc{$cid};
+  $cc->[0] = $vid if ( $vid < $cc->[0] );
+  $cc->[1]->{$vid} = 1;
+  return $cc;
+}
+
+# if any of scc undefined then they are not considered as the same
+sub cmp_scc
+{
+  my($cc, $id) = @_;
+  return 0 if ( !defined $cc );
+  return 0 if ( !exists $G{$id} );
+  my $v = $G{$id};
+  return 0 if ( !defined $v->[3] );
+  return $cc == $v->[3];
+}
 
 sub degree
 {
@@ -71,11 +108,11 @@ sub add_edge
 # printf("ae %d %d\n", $from, $to);
   if ( !exists $G{$from} )
   {
-    $G{$from} = [ $from, {}, {} ];
+    $G{$from} = [ $from, {}, {}, undef ];
   }
   if ( !exists $G{$to} )
   {
-    $G{$to} = [ $to, {}, {} ];
+    $G{$to} = [ $to, {}, {}, undef ];
   }
   my $fv = $G{$from};
   my $tv = $G{$to};
@@ -123,6 +160,7 @@ Options:
  -c -- compact
  -C -- find cut-points
  -d -- direct graph
+ -k -- condensate graph
  -V id - draw only connectivity component with vertex id
 EOF
   exit(8);
@@ -166,6 +204,48 @@ sub dump_graph
     foreach my $e ( keys %$out )
     {
       printf("v%d -- v%d;\n", $i, $e);
+      # remove edge e-i
+      $v = $G{$e};
+      delete $v->[1]->{$i};
+    }
+  }
+}
+
+sub dump_condencated
+{
+  my $cs_cnt = scalar keys %g_scc;
+  if ( !$cs_cnt ) {
+    dump_graph();
+    return;
+  }
+  # dump cs
+  while (my ($key, $value) = each (%g_scc) )
+  {
+    printf("v%d [shape=box]; /*", $value->[0]);
+    foreach ( sort { $a <=> $b } keys %{$value->[1]} )
+    {
+      printf(" %d", $_);
+    }
+    printf(" */\n");
+  }
+  # dump links for non-cs vertices
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( !exists $G{$i} );
+    my $v = $G{$i};
+    next if ( !defined($v->[1]) or defined($v->[3]) );
+    my $out = $v->[1];
+    my %cache;
+    foreach my $e ( keys %$out )
+    {
+      my $to = $G{$e};
+      if ( defined $to->[3] ) {
+        next if ( exists $cache{$to->[3]->[0]} );
+        printf("v%d -- v%d;\n", $i, $to->[3]->[0]);
+        $cache{$to->[3]->[0]} = 1;
+      } else {
+        printf("v%d -- v%d;\n", $i, $e);
+      }
       # remove edge e-i
       $v = $G{$e};
       delete $v->[1]->{$i};
@@ -298,9 +378,52 @@ sub find_cutpoints
   };
   foreach my $i ( 1 .. 1+$g_N )
   {
-    next if ( $vis[$i] );
+    next if ( $vis[$i] || !exists($G{$i}) );
     $dfs->($i, 0, $dfs);
   }
+}
+
+# condensate undirected graph
+# first find cut-points
+# then run waves for remained vertices ignoring cut-points
+sub cond_undir
+{
+  my %cp;
+  find_cutpoints(\%cp);
+  my @vis = (0) x (1 + $g_N);
+  my $cc_idx = 0;
+  my $dfs = sub {
+    my($vid, $dfs) = @_;
+    return if ( !exists $G{$vid} );
+    # add currently processed vertex
+    $vis[$vid] = 1;
+    my $v = $G{$vid};
+    $v->[3] = add2scc($cc_idx, $vid);
+    # process all neighbors
+    return if ( !defined $v->[1] );
+    foreach ( keys %{$v->[1]} )
+    {
+      next if ( $vis[$_] || exists($cp{$_}) || !exists($G{$_}) );
+      $dfs->($_, $dfs);  
+    }
+  };
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( $vis[$i] || exists($cp{$i}) || !exists($G{$i}) );
+    $dfs->($i, $dfs);
+    $cc_idx++;
+  }
+  # remove all scc with only node bcs they are useless
+  my @rem;
+  while (my ($key, $value) = each (%g_scc) )
+  {
+    if ( 1 == scalar keys %{ $value->[1] } ) {
+      push @rem, $key;
+      my $v = $G{ $value->[0] };
+      $v->[3] = undef;
+    }
+  }
+  delete $g_scc{$_} foreach ( @rem );
 }
 
 sub dump_cp
@@ -314,7 +437,7 @@ sub dump_cp
 }
 
 # main
-my $status = getopts("dcCV:");
+my $status = getopts("dckCV:");
 usage() if ( !$status );
 
 # format usually start wuth N M - number of nodes & number of edges
@@ -339,7 +462,13 @@ if ( defined $opt_V )
   my $vid = int($opt_V);
   die("cannot find vertex $opt_V") if ( !exists $G{$vid});
   find_cs($vid);
-} 
+}
+if ( defined $opt_k )
+{
+  if ( !defined $opt_d ) {
+    cond_undir();
+  }
+}
 # dump results
 dump_head();
 if ( defined $opt_d )
@@ -348,6 +477,10 @@ if ( defined $opt_d )
   dump_dir();
 } else {
   dump_cp() if ( defined $opt_C );
-  dump_graph();
+  if ( defined $opt_k ) {
+    dump_condencated();
+  } else {
+    dump_graph();
+  }
 }
 printf("}");
