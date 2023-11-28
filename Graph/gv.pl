@@ -23,6 +23,7 @@ my %G;
 # value is ref to array with indexes
 # 0 - smallest vertex id
 # 1 - map of vertices
+# 2 - map of dumped edges, also it could be used as new out-edges list
 my %g_scc;
 
 # add vertex vid to SCC with index cid
@@ -32,7 +33,7 @@ sub add2scc
   my($cid, $vid) = @_;
   if ( !exists $g_scc{$cid} )
   {
-    my $new_cc = [ $vid, { } ];
+    my $new_cc = [ $vid, { }, {} ];
     $new_cc->[1]->{$vid} = 1;
     $g_scc{$cid} = $new_cc;
     return $new_cc;
@@ -233,7 +234,7 @@ sub dump_condencated
   }
   # dump cs
   dump_cs();
-  # dump links for non-cs vertices
+  # dump links from non-cs vertices
   foreach my $i ( 1 .. 1+$g_N )
   {
     next if ( !exists $G{$i} );
@@ -289,9 +290,8 @@ sub dump_dir_cond
     next if ( !exists $G{$i} );
     my $v = $G{$i};
     next if ( !defined $v->[1]);
-    my $out = $v->[1];
     my %vcache;
-    foreach my $e ( keys %$out )
+    foreach my $e ( keys %{ $v->[1] } )
     {
       my $tov = $G{$e};
       # we have 4 cases here
@@ -300,9 +300,13 @@ sub dump_dir_cond
         if ( defined $tov->[3] )
         {
           next if ( $v->[3] == $tov->[3] ); # this is edge inside the same SCC
+          next if ( exists $v->[3]->[2]->{$tov->[3]} ); # check if we already dumped edge to SCC $tov->[3]
           printf("v%d -> v%d;\n", $v->[3]->[0], $tov->[3]->[0]);
+          $v->[3]->[2]->{$tov->[3]} = 1; # put this edge to map of dumped
         } else {
+          next if ( exists $v->[3]->[2]->{ $e } ); # check if we already dumped edge to $e
           printf("v%d -> v%d;\n", $v->[3]->[0], $e);
+          $v->[3]->[2]->{ $e } = 1; # put this edge to map of dumped
         }
       } else {
         if ( defined $tov->[3] )
