@@ -162,7 +162,7 @@ Options:
  -C -- find cut-points
  -d -- direct graph
  -k -- condensate graph
- -r -- dump nodes.csv & (r)edges.csv for R
+ -r -- dump nodes.csv & (d)edges.csv for R
  -V id - draw only connectivity component with vertex id
 EOF
   exit(8);
