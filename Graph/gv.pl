@@ -687,7 +687,7 @@ if ( defined $opt_k )
 if ( defined $opt_r )
 {
   my $nf;
-  open($nf, '>', "nodes.cvs") or die("cannot create nodes.cvs, error $!");
+  open($nf, '>', "nodes.csv") or die("cannot create nodes.csv, error $!");
   printf($nf "id,type\n");
   dump_csv_nodes($nf);
   close $nf;
