@@ -7,7 +7,7 @@ use Getopt::Std;
 use Data::Dumper;
 
 # var opts
-use vars qw/$opt_d $opt_c $opt_C $opt_k $opt_V/;
+use vars qw/$opt_d $opt_c $opt_C $opt_k $opt_r $opt_V/;
 
 # global vars
 my $g_N = 0;
@@ -162,6 +162,7 @@ Options:
  -C -- find cut-points
  -d -- direct graph
  -k -- condensate graph
+ -r -- dump nodes.csv & (r)edges.csv for R
  -V id - draw only connectivity component with vertex id
 EOF
   exit(8);
@@ -194,8 +195,9 @@ sub dump_st
   }
 }
 
-sub dump_graph
+sub _dump_graph
 {
+  my $pfn = shift;
   foreach my $i ( 1 .. 1+$g_N )
   {
     next if ( !exists $G{$i} );
@@ -204,12 +206,21 @@ sub dump_graph
     my $out = $v->[1];
     foreach my $e ( keys %$out )
     {
-      printf("v%d -- v%d;\n", $i, $e);
+      $pfn->($i, $e);
       # remove edge e-i
       $v = $G{$e};
       delete $v->[1]->{$i};
     }
   }
+}
+
+sub dump_graph
+{
+  my $pfn = sub {
+    my($i, $e) = @_;
+    printf("v%d -- v%d;\n", $i, $e);
+  };
+  _dump_graph($pfn);
 }
 
 sub dump_cs
@@ -225,16 +236,10 @@ sub dump_cs
   }
 }
 
-sub dump_condencated
+# dump links from non-cs vertices for undirected condensed graph
+sub _dump_non_cs
 {
-  my $cs_cnt = scalar keys %g_scc;
-  if ( !$cs_cnt ) {
-    dump_graph();
-    return;
-  }
-  # dump cs
-  dump_cs();
-  # dump links from non-cs vertices
+  my $pfn = shift;
   foreach my $i ( 1 .. 1+$g_N )
   {
     next if ( !exists $G{$i} );
@@ -247,10 +252,10 @@ sub dump_condencated
       my $to = $G{$e};
       if ( defined $to->[3] ) {
         next if ( exists $cache{$to->[3]->[0]} );
-        printf("v%d -- v%d;\n", $i, $to->[3]->[0]);
+        $pfn->($i, $to->[3]->[0]);
         $cache{$to->[3]->[0]} = 1;
       } else {
-        printf("v%d -- v%d;\n", $i, $e);
+        $pfn->($i, $e);
       }
       # remove edge e-i
       $v = $G{$e};
@@ -259,9 +264,41 @@ sub dump_condencated
   }
 }
 
-# dump edges of directed graph
-sub dump_dir
+sub dump_csv_edges
 {
+  my $fh = shift;
+  my $cs_cnt = scalar keys %g_scc;
+  my $pfn = sub {
+    my($i, $e) = @_;
+    printf($fh "v%d,v%d\n", $i, $e);
+  };
+  if ( !$cs_cnt ) {
+    _dump_graph($pfn);
+  } else {
+    _dump_non_cs($pfn);
+  }
+}
+
+sub dump_condencated
+{
+  my $cs_cnt = scalar keys %g_scc;
+  my $pfn = sub {
+    my($i, $e) = @_;
+    printf("v%d -- v%d;\n", $i, $e);
+  };
+  if ( !$cs_cnt ) {
+    _dump_graph($pfn);
+    return;
+  }
+  # dump cs
+  dump_cs();
+  _dump_non_cs($pfn);
+}
+
+# dump edges of directed graph
+sub _dump_dir
+{
+  my $pfn = shift;
   foreach my $i ( 1 .. 1+$g_N )
   {
     next if ( !exists $G{$i} );
@@ -270,21 +307,23 @@ sub dump_dir
     my $out = $v->[1];
     foreach my $e ( keys %$out )
     {
-      printf("v%d -> v%d;\n", $i, $e);
+      $pfn->($i, $e);
     }
   }
 }
 
-sub dump_dir_cond
+sub dump_dir
 {
-  my $cs_cnt = scalar keys %g_scc;
-  if ( !$cs_cnt ) {
-    dump_dir();
-    return;
-  }
-  # dump cs
-  dump_cs();
-  # dump edges
+  my $pfn = sub {
+    my($i, $e) = @_;
+    printf("v%d -> v%d;\n", $i, $e);
+  };
+  _dump_graph($pfn);
+}
+
+sub _dump_dir_edges
+{
+  my $pfn = shift;
   foreach my $i ( 1 .. 1+$g_N )
   {
     next if ( !exists $G{$i} );
@@ -301,24 +340,56 @@ sub dump_dir_cond
         {
           next if ( $v->[3] == $tov->[3] ); # this is edge inside the same SCC
           next if ( exists $v->[3]->[2]->{$tov->[3]} ); # check if we already dumped edge to SCC $tov->[3]
-          printf("v%d -> v%d;\n", $v->[3]->[0], $tov->[3]->[0]);
+          $pfn->($v->[3]->[0], $tov->[3]->[0]);
           $v->[3]->[2]->{$tov->[3]} = 1; # put this edge to map of dumped
         } else {
           next if ( exists $v->[3]->[2]->{ $e } ); # check if we already dumped edge to $e
-          printf("v%d -> v%d;\n", $v->[3]->[0], $e);
+          $pfn->($v->[3]->[0], $e);
           $v->[3]->[2]->{ $e } = 1; # put this edge to map of dumped
         }
       } else {
         if ( defined $tov->[3] )
         {
           next if ( exists $vcache{$tov->[3]->[0]} );
-          printf("v%d -> v%d;\n", $i, $tov->[3]->[0]);
+          $pfn->($i, $tov->[3]->[0]);
           $vcache{$tov->[3]->[0]} = 1;
         } else {
-          printf("v%d -> v%d;\n", $i, $e);
+          $pfn->($i, $e);
         }
       }
     }
+  }
+}
+
+sub dump_dir_cond
+{
+  my $cs_cnt = scalar keys %g_scc;
+  if ( !$cs_cnt ) {
+    dump_dir();
+    return;
+  }
+  # dump cs
+  dump_cs();
+  # dump edges
+  my $pfn = sub {
+    my($i, $e) = @_;
+    printf("v%d -> v%d;\n", $i, $e);
+  };
+  _dump_dir_edges($pfn);
+}
+
+sub dump_csv_dedges
+{
+  my $fh = shift;
+  my $pfn = sub {
+    my($i, $e) = @_;
+    printf($fh "v%d,v%d\n", $i, $e);
+  };
+  my $cs_cnt = scalar keys %g_scc;
+  if ( !$cs_cnt ) {
+    _dump_dir($pfn);
+  } else {
+    _dump_dir_edges($pfn);
   }
 }
 
@@ -538,6 +609,35 @@ sub cond_undir
   del_odd_sccs();
 }
 
+sub dump_csv_nodes
+{
+  my $fh = shift;
+  # types: 1 - just some vertex, 2 - S, 3 - T, 4 - condenced SCC, 5 - cut-point
+  my %dumped;
+  foreach my $i ( 1 .. 1+$g_N )
+  {
+    next if ( !exists($G{$i}) );
+    my $v = $G{$i};
+    my $type = 1;
+    if ( defined $v->[3] )
+    {
+      next if ( exists $dumped{$v->[3]} );
+      printf($fh "v%d,4\n", $v->[3]->[0]);
+      $dumped{$v->[3]} = 1;
+      next;
+    }
+    if ( defined $opt_d )
+    {
+      if ( is_S($i) ) {
+        $type = 2;
+      } elsif ( is_T($i) ) {
+        $type = 3;
+      }
+    }
+    printf($fh "v%d,%d\n", $i, $type);
+  }
+}
+
 sub dump_cp
 {
   my %cp;
@@ -549,7 +649,7 @@ sub dump_cp
 }
 
 # main
-my $status = getopts("dckCV:");
+my $status = getopts("dckrCV:");
 usage() if ( !$status );
 
 # format usually start wuth N M - number of nodes & number of edges
@@ -584,21 +684,39 @@ if ( defined $opt_k )
   }
 }
 # dump results
-dump_head();
-if ( defined $opt_d )
+if ( defined $opt_r )
 {
-  dump_st();
-  if ( defined $opt_k ) {
-    dump_dir_cond();
+  my $nf;
+  open($nf, '>', "nodes.cvs") or die("cannot create nodes.cvs, error $!");
+  printf($nf "id,type\n");
+  dump_csv_nodes($nf);
+  close $nf;
+  my $ename = (defined $opt_d) ? "dedges.csv" : "edges.csv";
+  open($nf, '>', $ename) or die("cannot create $ename, error $!");
+  printf($nf "from,to\n");
+  if ( defined $opt_d ) {
+    dump_csv_dedges($nf);
   } else {
-    dump_dir();
+    dump_csv_edges($nf);
   }
+  close $nf;
 } else {
-  dump_cp() if ( defined $opt_C );
-  if ( defined $opt_k ) {
-    dump_condencated();
-  } else {
-    dump_graph();
-  }
+ dump_head();
+ if ( defined $opt_d )
+ {
+   dump_st();
+   if ( defined $opt_k ) {
+     dump_dir_cond();
+   } else {
+     dump_dir();
+   }
+ } else {
+   dump_cp() if ( defined $opt_C );
+   if ( defined $opt_k ) {
+     dump_condencated();
+   } else {
+     dump_graph();
+   }
+ }
+ printf("}");
 }
-printf("}");
