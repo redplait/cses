@@ -20,13 +20,13 @@ struct Tree {
     vector<int> id;
     vector<int64_t> powr;
 
-    void dfs(int curNode, int prevNode) {
+    void dfs(int curNode, int prevNode, int patch_c) {
         sub[curNode] = 1;
         bool is_centroid = true;
         vector<pair<int, int> > nodes;
         for (int v: adj[curNode]) {
             if (v != prevNode) {
-                dfs(v, curNode);
+                dfs(v, curNode, patch_c);
                 sub[curNode] += sub[v];
                 if (sub[v] > (int) adj.size() / 2) {
                     is_centroid = false;
@@ -44,18 +44,18 @@ struct Tree {
         if ((int) adj.size() - sub[curNode] > (int) adj.size() / 2) {
             is_centroid = false;
         }
-        if (is_centroid) centroid.push_back(curNode);
+        if ( patch_c && is_centroid) centroid.push_back(curNode);
     }
 
     const vector<int> &Centroid() {
-        dfs(0, -1);
+        dfs(0, -1, 1);
         return centroid;
     }
 
     bool isIsomorphic(int root1, Tree &t2, int root2)
     {
-        dfs(root1, root1);
-        t2.dfs(root2, root2);
+        dfs(root1, root1, 0);
+        t2.dfs(root2, root2, 0);
         sort(sub.begin(), sub.end());
         sort(t2.sub.begin(), t2.sub.end());
         return (id[root1] == t2.id[root2]);
@@ -93,8 +93,8 @@ int main()
         cin >> N;
         Tree t1(N), t2(N);
         t1.read(N); t2.read(N);
-        auto c1 = t1.Centroid();
-        auto c2 = t2.Centroid();
+        const auto &c1 = t1.Centroid();
+        const auto &c2 = t2.Centroid();
         bool done = false;
         for (int i: c1)
         {
