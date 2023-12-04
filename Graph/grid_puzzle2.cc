@@ -9,8 +9,8 @@
 #include <limits.h>
 
 // solution for Grid Puzzle II
-// pretty obviously that we asked to find max-flow in grpaph, like https://algorithmica.org/ru/mincost-maxflow
-// main question is how to build graph
+// pretty obviously that we asked to find max-flow in graph, like https://algorithmica.org/ru/mincost-maxflow
+// main question is how to build such graph
 // Lets add N vertices for columns and N for rows
 // then yet 2 pseudo vertices S for source (traditionally has index 0) and T to get results
 // now we can link S with each row (see method add_row) and each column with T (see method add_col)
@@ -48,8 +48,8 @@ struct sq
   vector<set<int> > G;
   int edge_idx, N, t_idx, rv;
   int64_t res_v;
-  sq(int n): res(n), rows(n), cols(n), 
-    parents(2 * (n + 1)), dist(2 * (n + 1)), visited(2 * (n + 1)), G(2 * (n + 1)), 
+  sq(int n): res(n), rows(n), cols(n),
+    parents(2 * (n + 1)), dist(2 * (n + 1)), visited(2 * (n + 1)), G(2 * (n + 1)),
     edge_idx(1), N(n), res_v(0)
   {
     for ( int i = 0; i < N; ++i ) res[i].resize(N, '.');
@@ -105,7 +105,7 @@ struct sq
     edges.push_back(dir);
     Edge *rev = new Edge{dir->v, dir->u, 0, v};
     redges.push_back(rev);
-    edge_idx++;    
+    edge_idx++;
   }
   void dump()
   {
