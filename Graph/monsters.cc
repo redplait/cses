@@ -92,7 +92,7 @@ struct lab
         --cc;
         continue;
       }
-      printf("BIG: %d %d color %d\n", p.first, p.second, cc);
+      printf("BUG: %d %d color %d\n", p.first, p.second, cc);
       exit(3);
     }
     reverse(res.begin(), res.end());

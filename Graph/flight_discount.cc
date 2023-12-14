@@ -11,8 +11,8 @@
 // I could use Yen`s algo to get all K-th shortest paths - complexity is O(K * N * (M + N * log N))
 // there are 2 problems
 // 1) how big is K?
-// 2) whithin each found path we also need to find edge with maximal cost for discount so total complexity is even worse N ^ 3 * log(N)
-// So lets try more simple way - we could mark nodes reacheable from T
+// 2) within each found path we also need to find edge with maximal cost for discount so total complexity is even worse N ^ 3 * log(N)
+// So lets try more simple way - we just mark nodes reacheable from T
 // then run Dijkstra twice for all such nodes:
 // 1) to calculate distance from 0 (S) to all vertices
 // 2) to calculate distance from T to all vertices using in-edges
