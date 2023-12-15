@@ -6,7 +6,7 @@
 
 // solution for High Score
 // classical Bellman-Ford with negative cycle detection, for example from
-// https://github.com/mrsac7/CSES-Solutions/blob/master/src/1673%20-%20High%20Score.cpp
+// https://e-maxx.ru/algo/ford_bellman
 // Bcs we try to find max cost we can just negate all weights
 // Also we need to find not ANY negative cycle but only reacheable from T
 
