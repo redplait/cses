@@ -19,6 +19,7 @@ ddabb       ddabbdd
 
 Hovewer square of rectangle must not be divisible by 6, see https://nrich.maths.org/7026
 so in test 3 we have strange rectangle 9 x 5
+also sample of 9 x 9: https://math.stackexchange.com/questions/2048438/tiling-rectangle-using-triominos
 */
 
 using namespace std;
@@ -27,7 +28,20 @@ struct plan
 {
   int rep_right;
   int rep_down;
-  bool kind; // false - 2 x 3, else 3 x 2
+  int kind; // 0 - 2 x 3, 1 - 3 x 2, 2 - 9 x 5, 3 - 5 x 9
+};
+
+// 5 colors, any adjacent on borders 0..4
+const char d95[9][5] = {
+/* 1 */ {0,0,4,4,2},
+/* 2 */ {0,3,4,2,2},
+/* 3 */ {1,3,3,0,0},
+/* 4 */ {1,1,4,4,0},
+/* 5 */ {3,3,4,2,2},
+/* 6 */ {0,3,1,1,2},
+/* 7 */ {0,0,1,4,4},
+/* 8 */ {1,1,2,0,4},
+/* 9 */ {1,2,2,0,0},
 };
 
 struct fill_tr
@@ -38,49 +52,80 @@ struct fill_tr
   vector<plan> trom;
   fill_tr(int n, int m): rows(n), cols(m)
   {}
-  int possible()
+  int check2x3(int r, int c, vector<plan> &t)
   {
-    int64_t square = rows * cols;
-    if ( 0 != (square % 6) ) return 0;
     // simple cases - rows is even and cols divisible by 3
-    if ( !(rows & 1) && !(cols % 3) )
+    if ( !(r & 1) && !(c % 3) )
     {
-      trom.push_back( plan{ cols / 3, rows >> 1, false } );
+      t.push_back( plan{ c / 3, r >> 1, 0 } );
       return 1;
     }
     // cols is even and rows divisible by 3
-    if ( !(cols & 1) && !(rows % 3) )
+    if ( !(c & 1) && !(r % 3) )
     {
-      trom.push_back( plan{ cols >> 1, rows / 3, true } );
+      t.push_back( plan{ c >> 1, r / 3, 1 } );
       return 1;
     }
     // if one side is divisible by 6 then other - 2 must be also divisible by 3
-    if ( !(rows % 6) && !((cols - 2) % 3) )
+    if ( !(r % 6) && !((c - 2) % 3) )
     {
-      trom.push_back( plan{ 1, rows / 3, false } );
-      trom.push_back( plan{ (cols - 2) / 3, rows >> 1, true } );
+      t.push_back( plan{ 1, r / 3, 0 } );
+      t.push_back( plan{ (c - 2) / 3, r >> 1, 1 } );
       return 1;
     }
-    if ( !(cols % 6) && !((rows - 2) % 3) )
+    if ( !(c % 6) && !((r - 2) % 3) )
     {
-      trom.push_back( plan{ cols / 3, 1, false } );
-      trom.push_back( plan{ cols >> 1, (rows - 2) / 3, true } );
+      t.push_back( plan{ c / 3, 1, 0 } );
+      t.push_back( plan{ c >> 1, (r - 2) / 3, 1 } );
       return 1;
     }
     // if one side is divisible by 6 then other - 3 must be even
-    if ( !(cols % 6) && rows > 3 && !((rows - 3) & 1) )
+    if ( !(c % 6) && r > 3 && !((r - 3) & 1) )
     {
-      trom.push_back( plan{ cols >> 1, 1, true } );
-      trom.push_back( plan{ cols / 3, (rows - 3) >> 1, false } );
+      t.push_back( plan{ c >> 1, 1, 1 } );
+      t.push_back( plan{ c / 3, (r - 3) >> 1, 0 } );
       return 1;
     }
-    if ( !(rows % 6) && cols > 3 && !((cols - 3) & 1) )
+    if ( !(r % 6) && c > 3 && !((c - 3) & 1) )
     {
-      trom.push_back( plan{ 1, rows >> 1, false } );
-      trom.push_back( plan{ (cols - 3) >> 1, rows / 3, true } );
+      t.push_back( plan{ 1, r >> 1, 0 } );
+      t.push_back( plan{ (c - 3) >> 1, r / 3, 1 } );
       return 1;
     }
     return 0;
+  }
+  int possible()
+  {
+    int64_t square = rows * cols;
+    if ( 0 != (square % 3) ) return 0;
+    if ( check2x3(rows, cols, trom) ) return 1;
+    // https://topologicalmusings.wordpress.com/2008/07/03/solution-to-pow-6-tiling-with-triominoes/
+    if ( square < 45 ) return 0;
+    // 9 x 5
+    if ( !(rows % 9) && !(cols % 5) )
+    {
+      trom.push_back( plan{ cols / 5, rows / 9, 2 } );
+      return 1;
+    }
+    // 5 x 9
+    if ( !(rows % 5) && !(cols % 9) )
+    {
+      trom.push_back( plan{ cols / 9, rows / 5, 3 } );
+      return 1;
+    }
+    return 0;
+  }
+  void draw9x5(int y, int x)
+  {
+    for ( int i = 0; i < 9; i++ )
+     for ( int j = 0; j < 5; j++ )
+       res[y+i][x+j] = 'A' + d95[i][j];
+  }
+  void draw5x9(int y, int x)
+  {
+    for ( int i = 0; i < 5; i++ )
+     for ( int j = 0; j < 9; j++ )
+       res[y+i][x+j] = 'A' + d95[j][i];
   }
   void draw2x3(int y, int x, int color)
   {
@@ -113,6 +158,16 @@ struct fill_tr
     if ( 1 == trom.size() )
     {
       plan &p = *trom.begin();
+      if ( p.kind == 2 || p.kind == 3 )
+      {
+        while( y < rows )
+        {
+          for ( x = 0; x < cols; x += (p.kind == 2) ? 5 : 9 )
+            if ( p.kind == 2 ) draw9x5(y, x);
+            else draw5x9(y, x);
+          y += (p.kind == 2) ? 9 : 5;
+        }
+      } else
       while( y < rows )
       {
         for ( x = 0; x < cols; x += p.kind ? 2 : 3 )
@@ -122,7 +177,6 @@ struct fill_tr
           color ^= 1;
         }
         y += p.kind ? 3 : 2;
-        x = 0;
         color ^= 2;
       }
     } else {
