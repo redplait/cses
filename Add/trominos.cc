@@ -28,20 +28,21 @@ struct plan
 {
   int rep_right;
   int rep_down;
-  int kind; // 0 - 2 x 3, 1 - 3 x 2, 2 - 9 x 5, 3 - 5 x 9
+  char kind; // 0 - 2 x 3, 1 - 3 x 2, 2 - 9 x 5, 3 - 5 x 9
+  char full_bottom = 0;
 };
 
-// 5 colors, any adjacent on borders 0..4
+// 5 colors, any adjacent on borders 0..3 bcs all color-4 are inside
 const char d95[9][5] = {
-/* 1 */ {0,0,4,4,2},
-/* 2 */ {0,3,4,2,2},
-/* 3 */ {1,3,3,0,0},
-/* 4 */ {1,1,4,4,0},
-/* 5 */ {3,3,4,2,2},
-/* 6 */ {0,3,1,1,2},
-/* 7 */ {0,0,1,4,4},
-/* 8 */ {1,1,2,0,4},
-/* 9 */ {1,2,2,0,0},
+/* 1 */ {0,0,3,3,2},
+/* 2 */ {0,4,3,2,2},
+/* 3 */ {1,4,4,0,0},
+/* 4 */ {1,1,3,3,0},
+/* 5 */ {2,2,3,1,1},
+/* 6 */ {0,2,4,4,1},
+/* 7 */ {0,0,4,2,2},
+/* 8 */ {3,3,2,1,2},
+/* 9 */ {3,2,2,1,1},
 };
 
 struct fill_tr
@@ -49,7 +50,8 @@ struct fill_tr
   vector<string> res;
   int rows;
   int cols;
-  vector<plan> trom;
+  plan *has_95 = nullptr;
+  vector<plan> trom, right; // trom is bottom if has_95
   fill_tr(int n, int m): rows(n), cols(m)
   {}
   int check2x3(int r, int c, vector<plan> &t)
@@ -102,17 +104,75 @@ struct fill_tr
     // https://topologicalmusings.wordpress.com/2008/07/03/solution-to-pow-6-tiling-with-triominoes/
     if ( square < 45 ) return 0;
     // 9 x 5
-    if ( !(rows % 9) && !(cols % 5) )
+    if ( rows >= 9 && !(rows % 9) && cols >= 5 && !(cols % 5) )
     {
       trom.push_back( plan{ cols / 5, rows / 9, 2 } );
       return 1;
     }
     // 5 x 9
-    if ( !(rows % 5) && !(cols % 9) )
+    if ( rows >= 5 && !(rows % 5) && cols >= 9 && !(cols % 9) )
     {
       trom.push_back( plan{ cols / 9, rows / 5, 3 } );
       return 1;
     }
+    // we have 4 possibility here:
+    // row - 9 col - 5 and some combibation of bottom and right
+    // row - 5 col - 9 and some combibation of bottom and right
+    // bottom will be stored in trom and 9x5 in has_95
+    vector<plan> tb, tr;
+    int r, c;
+    if ( rows >= 9 && cols >= 5 )
+    {
+      r = rows - 9;
+      c = cols - 5;
+      if ( !r && check2x3(rows, c, tr) )
+      { // test 9 7
+#ifdef DEBUG
+ printf("I r %d c %d tr %ld\n", r, c, tr.size());
+#endif
+        has_95 = new plan{ 1, 1, 2 };
+        right = move(tr);
+        return 1;
+      }
+      if ( !c && check2x3(r, cols, tb) )
+      { // test 15 5
+#ifdef DEBUG
+ printf("II r %d c %d tb %ld\n", r, c, tb.size());
+#endif
+        has_95 = new plan{ 1, 1, 2, 1 };
+        trom = move(tb);
+        return 1;
+      }
+      // check rows & cols
+    }
+    tb.clear(); tr.clear();
+    if ( rows >= 5 && cols >= 9 )
+    {
+      r = rows - 5;
+      c = cols - 9;
+      if ( !r && check2x3(rows, c, tr) )
+      { // test 5 15
+#ifdef DEBUG
+ printf("III r %d c %d tr %ld\n", r, c, tr.size());
+#endif
+        has_95 = new plan{ 1, 1, 3 };
+        right = move(tr);
+        return 1;
+      }
+      if ( !c && check2x3(r, cols, tb) )
+      { // test 7 9
+#ifdef DEBUG
+ printf("IV r %d c %d tb %ld\n", r, c, tb.size());
+#endif
+        has_95 = new plan{ 1, 1, 3, 1 };
+        trom = move(tb);
+        return 1;
+      }
+      // check rows & cols
+    }
+#ifdef DEBUG
+ printf("not possible after all checks\n");
+#endif
     return 0;
   }
   void draw9x5(int y, int x)
@@ -149,28 +209,22 @@ struct fill_tr
     res[y+2][x] = B;   // ++
     res[y+2][x+1] = B;
   }
-  void draw()
+  void draw_single(int &y, int &x, int &color, plan &p)
   {
-    // make empty res
-    res.resize(rows);
-    for ( int i = 0; i < rows; i++ ) res[i].resize(cols, ' ');
-    int x = 0, y = 0, color = 0;
-    if ( 1 == trom.size() )
+    if ( p.kind == 2 || p.kind == 3 )
     {
-      plan &p = *trom.begin();
-      if ( p.kind == 2 || p.kind == 3 )
+      for ( int i = 0; i < p.rep_down; i++ )
       {
-        while( y < rows )
-        {
-          for ( x = 0; x < cols; x += (p.kind == 2) ? 5 : 9 )
-            if ( p.kind == 2 ) draw9x5(y, x);
-            else draw5x9(y, x);
-          y += (p.kind == 2) ? 9 : 5;
-        }
-      } else
+        for ( int j = 0; j < p.rep_right; ++j, x += (p.kind == 2) ? 5 : 9 )
+          if ( p.kind == 2 ) draw9x5(y, x);
+          else draw5x9(y, x);
+        y += (p.kind == 2) ? 9 : 5;
+      }
+    } else {
+      int old_x = x;
       while( y < rows )
       {
-        for ( x = 0; x < cols; x += p.kind ? 2 : 3 )
+        for ( x = old_x; x < cols; x += p.kind ? 2 : 3 )
         {
           if ( p.kind ) draw3x2(y, x, color);
           else draw2x3(y, x, color);
@@ -179,40 +233,75 @@ struct fill_tr
         y += p.kind ? 3 : 2;
         color ^= 2;
       }
-    } else {
-      plan &p = *trom.begin();
+    }
+  }
+  void draw_list(int &y, int &x, int &color, vector<plan> &t)
+  {
+    if ( 1 == t.size() ) draw_single(y,x,color,*t.begin());
+    else {
+      int cdiff = 0, old_color = color;
+      int old_y = y, old_x = x;
+      plan &p = *t.begin();
       if ( p.rep_right == 1 )
       {
-#define DRAW(a, b)  if ( p.kind ) draw3x2(a, b, color); \
-          else draw2x3(a, b, color); \
-          color ^= 1;
+#define DRAW(b)  if ( p.kind ) draw3x2(y, b, color); \
+          else draw2x3(y, b, color); \
+          cdiff ^= 1; color = old_color + cdiff;
         // draw 1 column
-        for ( y = 0; y < rows; y += p.kind ? 3 : 2 )
-        { DRAW(y, x) }
+        for ( y = old_y; y < rows; y += p.kind ? 3 : 2 )
+        { DRAW(x) }
         x += p.kind ? 2 : 3;
         // draw remaining columns
-        color ^= 2;
-        p = trom[1];
-        for ( y = 0; y < rows; y += p.kind ? 3 : 2 )
+        cdiff ^= 2; old_color += 2; color = old_color + cdiff;
+        p = t[1];
+        for ( y = old_y; y < rows; y += p.kind ? 3 : 2 )
         {
           for ( int i = x; i < cols; i += p.kind ? 2 : 3 )
-          { DRAW(y, i) }
-          color ^= 2;
+          { DRAW(i) }
+          cdiff ^= 2; color = old_color + cdiff;
         }
       } else {
         // draw 1 row
-        for ( x = 0; x < cols; x += p.kind ? 2 : 3 )
-        { DRAW(y, x) }
+        for ( x = old_x; x < cols; x += p.kind ? 2 : 3 )
+        { DRAW(x) }
         y += p.kind ? 3 : 2;
         // draw remaining rows
-        color ^= 2;
-        p = trom[1];
+        cdiff ^= 2; old_color += 2; color = old_color + cdiff;
+        p = t[1];
         for ( ; y < rows; y += p.kind ? 3 : 2 )
         {
-          for ( x = 0; x < cols; x += p.kind ? 2 : 3 )
-          { DRAW(y, x) }
-          color ^= 2;
+          for ( x = old_x; x < cols; x += p.kind ? 2 : 3 )
+          { DRAW(x) }
+          cdiff ^= 2; color = old_color + cdiff;
         }
+      }
+    }
+  }
+  void draw()
+  {
+    // make empty res
+    res.resize(rows);
+    for ( int i = 0; i < rows; i++ ) res[i].resize(cols, ' ');
+    int y = 0, x = 0, color = 0;
+    if ( !has_95 )
+      draw_list(y, x, color, trom);
+    else {
+      draw_single(y, x, color, *has_95);
+      color = 4;
+#ifdef DEBUG
+ printf("bottom %ld right %ld\n", trom.size(), right.size());
+#endif
+      if ( !trom.empty() && !right.empty() )
+      {
+ printf("not implemented\n");
+      } else if ( !trom.empty() )
+      {
+        if ( has_95->full_bottom ) x = 0;
+        draw_list(y, x, color, trom);
+      } else if ( !right.empty() )
+      {
+        y = 0;
+        draw_list(y, x, color, right);
       }
     }
     // dump result
