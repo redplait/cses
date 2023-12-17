@@ -116,9 +116,9 @@ struct fill_tr
       return 1;
     }
     // we have 4 possibility here:
-    // row - 9 col - 5 and some combibation of bottom and right
-    // row - 5 col - 9 and some combibation of bottom and right
-    // bottom will be stored in trom and 9x5 in has_95
+    // row - 9 col - 5 and two combinations of bottom & right parts
+    // row - 5 col - 9 and two combinations of bottom & right parts
+    // bottom will be stored in trom and 9x5 in field has_95
     vector<plan> tb, tr;
     int r, c;
     if ( rows >= 9 && cols >= 5 )
@@ -143,9 +143,28 @@ struct fill_tr
         trom = move(tb);
         return 1;
       }
-      // check rows & cols
+#define TRR trom = move(tb); right = move(tr); return 1;
+      // check both rows & cols. There are 2 possibilities:
+      // 1) bottom part till right and right with 9 rows
+      // 2) right part till bottom and bottom only with 5 columns
+      if ( check2x3(r, cols, tb) && check2x3(9, c, tr) )
+      { // test 21 39
+#ifdef DEBUG
+ printf("II full bottom, r %d c %d tb %ld, tr %ld\n", rows, cols, tb.size(), tr.size());
+#endif
+        has_95 = new plan{ 1, 1, 2, 1 }; TRR
+      }
+#define TC tb.clear(); tr.clear();
+      TC
+      if ( check2x3(rows, c, tb) && check2x3(r, 5, tr) )
+      {
+#ifdef DEBUG
+ printf("II full right, r %d c %d tb %ld, tr %ld\n", rows, cols, tb.size(), tr.size());
+#endif
+        has_95 = new plan{ 1, 1, 2, 0 }; TRR
+      }
     }
-    tb.clear(); tr.clear();
+    TC
     if ( rows >= 5 && cols >= 9 )
     {
       r = rows - 5;
@@ -168,7 +187,24 @@ struct fill_tr
         trom = move(tb);
         return 1;
       }
-      // check rows & cols
+      // check both rows & cols. There are 2 possibilities:
+      // 1) bottom part till right and right with 5 rows
+      // 2) right part till bottom and bottom only with 9 columns
+      if ( check2x3(r, cols, tb) && check2x3(5, c, tr) )
+      {
+#ifdef DEBUG
+ printf("IV full bottom, r %d c %d tb %ld, tr %ld\n", rows, cols, tb.size(), tr.size());
+#endif
+        has_95 = new plan{ 1, 1, 3, 1 }; TRR
+      }
+      TC
+      if ( check2x3(rows, c, tb) && check2x3(r, 9, tr) )
+      {
+#ifdef DEBUG
+ printf("IV full right, r %d c %d tb %ld, tr %ld\n", rows, cols, tb.size(), tr.size());
+#endif
+        has_95 = new plan{ 1, 1, 3, 0 }; TRR
+      }
     }
 #ifdef DEBUG
  printf("not possible after all checks\n");
@@ -211,17 +247,18 @@ struct fill_tr
   }
   void draw_single(int &y, int &x, int &color, plan &p)
   {
+    int old_x = x;
     if ( p.kind == 2 || p.kind == 3 )
     {
       for ( int i = 0; i < p.rep_down; i++ )
       {
+        x = old_x;
         for ( int j = 0; j < p.rep_right; ++j, x += (p.kind == 2) ? 5 : 9 )
           if ( p.kind == 2 ) draw9x5(y, x);
           else draw5x9(y, x);
         y += (p.kind == 2) ? 9 : 5;
       }
     } else {
-      int old_x = x;
       while( y < rows )
       {
         for ( x = old_x; x < cols; x += p.kind ? 2 : 3 )
@@ -287,13 +324,20 @@ struct fill_tr
       draw_list(y, x, color, trom);
     else {
       draw_single(y, x, color, *has_95);
-      color = 4;
+      color = 2;
 #ifdef DEBUG
- printf("bottom %ld right %ld\n", trom.size(), right.size());
+ printf("r %d c %d bottom %ld right %ld\n", rows, cols, trom.size(), right.size()); fflush(stdout);
 #endif
       if ( !trom.empty() && !right.empty() )
       {
- printf("not implemented\n");
+        int old_x = x;
+        // draw bottom part
+        if ( has_95->full_bottom ) x = 0;
+        draw_list(y, x, color, trom);
+        // draw right part
+        color = 6;
+        y = 0;
+//        draw_list(y, old_x, color, right);
       } else if ( !trom.empty() )
       {
         if ( has_95->full_bottom ) x = 0;
