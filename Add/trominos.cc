@@ -330,14 +330,20 @@ struct fill_tr
 #endif
       if ( !trom.empty() && !right.empty() )
       {
-        int old_x = x;
+        int old_x = x, old_y = y, old_r = rows, old_c = cols;
         // draw bottom part
-        if ( has_95->full_bottom ) x = 0;
+        x = 0;
+        // if not full bottom - draw only old_x columns
+        if ( !has_95->full_bottom ) cols = old_x;
         draw_list(y, x, color, trom);
-        // draw right part
+        cols = old_c;
+        // draw right part, we used in bottom max 4 colors
         color = 6;
         y = 0;
-//        draw_list(y, old_x, color, right);
+        // if full bottom - draw only old_y rows
+        if ( has_95->full_bottom ) rows = old_y;
+        draw_list(y, old_x, color, right);
+        rows = old_r;
       } else if ( !trom.empty() )
       {
         if ( has_95->full_bottom ) x = 0;
