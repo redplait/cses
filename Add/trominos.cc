@@ -324,12 +324,15 @@ struct fill_tr
       draw_list(y, x, color, trom);
     else {
       draw_single(y, x, color, *has_95);
-      color = 2;
+      color = 2; // bcs rect 9x5 can be colored with 4 colors
 #ifdef DEBUG
  printf("r %d c %d bottom %ld right %ld\n", rows, cols, trom.size(), right.size()); fflush(stdout);
 #endif
       if ( !trom.empty() && !right.empty() )
       {
+#ifdef DEBUG
+ printf("r %d c %d kind %d full_bottom %d\n", rows, cols, has_95->kind, has_95->full_bottom);
+#endif
         int old_x = x, old_y = y, old_r = rows, old_c = cols;
         // draw bottom part
         x = 0;
@@ -337,7 +340,7 @@ struct fill_tr
         if ( !has_95->full_bottom ) cols = old_x;
         draw_list(y, x, color, trom);
         cols = old_c;
-        // draw right part, we used in bottom max 4 colors
+        // draw right part, we used in bottom max 4 color pairs
         color = 6;
         y = 0;
         // if full bottom - draw only old_y rows
@@ -346,10 +349,12 @@ struct fill_tr
         rows = old_r;
       } else if ( !trom.empty() )
       {
+        color = 4;
         if ( has_95->full_bottom ) x = 0;
         draw_list(y, x, color, trom);
       } else if ( !right.empty() )
       {
+        color = 4;
         y = 0;
         draw_list(y, x, color, right);
       }
