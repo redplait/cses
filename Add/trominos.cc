@@ -6,7 +6,7 @@
 /* solution for Filling Trominos
    really hard task: https://cses.fi/problemset/task/2423
 Observation 1: square of rectangle must be divisible by 3
-Uvservation 2: you can fill rectangle with 1 size not divisible by 2 AND not divisible by 3
+Observation 2: you can fill rectangle with 1 size not divisible by 2 AND not divisible by 3
 Examples:
 block 6x5   block 6x7  block 5x6
 
