@@ -11,9 +11,9 @@ using namespace std;
 /* Planets Cycles
  * Task is formulated very vaguely - seems that you need to find distance for nearest planet with cycle
  * Planet P with out-coming node T can be
- *  dead-end if no T or T points to P itself
+ *  dead-end if no out-coming edges or T points to P itself
  *  in cycle - then we need all planets in cycle and index of P
- *  just some route ending in previois 2 cases
+ *  just some route ending in previous 2 cases
 */
 
 // size of cycle
