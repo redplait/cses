@@ -58,7 +58,6 @@ struct graph
 {
   int N;
   int cp_size = 0;
-  int cond_size = 0;
   int wave_cnt;
   int cond_connected = 0;
   vector<node> nodes;
@@ -187,6 +186,7 @@ printf("cand %d\n", (int)cand.size());
       cond.push_back(chain);
       scc++;
     }
+    int chain_cnt = scc;
 printTime("chains");
     // 3) fill SCC
     reset();
@@ -210,8 +210,8 @@ printTime("chains");
     {
       if ( c.chain )
       {
-        if ( c.left != -1 ) c.left = nodes[ c.left ].css;
-        if ( c.right != -1 ) c.right = nodes[ c.right ].css;
+        if ( c.left != -1 ) { c.left = nodes[ c.left ].css; c.edges.insert(c.left); }
+        if ( c.right != -1 ) { c.right = nodes[ c.right ].css; c.edges.insert(c.right); }
 #ifdef DEBUG
  printf("left %d right %d\n", c.left, c.right);
 #endif
@@ -222,6 +222,7 @@ printTime("chains");
     for ( int i = 0; i < N; ++i )
     {
       int id = nodes[i].css;
+      if ( id < chain_cnt ) continue; // all chains where filled at step 4
 #ifdef DEBUG
  printf("node %d in %d order %d %c\n", i+1, id, nodes[i].chain_order, nodes[i].cutpoint ? 'Y' : ' ');
 #endif
