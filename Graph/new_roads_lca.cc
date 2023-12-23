@@ -14,6 +14,8 @@ using namespace std;
 
 // solution for New Roads Queries using LCA
 // results 0.87s on test 6
+// We can reduce size of LCA tree - just store initial edge in each node and include to LCA tree only edges
+// now results 0.77s on test 6
 
 struct edge
 {
@@ -26,6 +28,7 @@ struct connected;
 struct node
 {
   int n;
+  int edge = -1;
   connected *c = nullptr;
 };
 
@@ -70,7 +73,7 @@ struct graph
   int new_edge(int a, int b, int day)
   {
     edges.push_back( { a, b, day } );
-    return N + edge_idx++;
+    return edge_idx++;
   }
   inline void add_edge(int a, int b, int days)
   {
@@ -82,7 +85,8 @@ struct graph
       comps.insert(cc);
       an.c = bn.c = cc;
       cc->nodes.insert(&an); cc->nodes.insert(&bn);
-      cc->root = new_edge(a - 1, b - 1, days + 1);
+      cc->root = new_edge(-1, -1, days + 1);
+      an.edge = bn.edge = cc->root;
       return;
     }
     // check if we try add edge to the same connection set
@@ -90,16 +94,18 @@ struct graph
       return;
     if ( !an.c ) // add node an to connection set in bn
     {
-      int root = new_edge(an.n, bn.c->root, days + 1);
+      int root = new_edge(-1, bn.c->root, days + 1);
       an.c = bn.c;
+      an.edge = root;
       bn.c->nodes.insert(&an);
       bn.c->root = root;
       return;
     }
-    if ( !bn.c) // add node bn to connection set in an
+    if ( !bn.c ) // add node bn to connection set in an
     {
-      int root = new_edge(bn.n, an.c->root, days + 1);
+      int root = new_edge(-1, an.c->root, days + 1);
       bn.c = an.c;
+      bn.edge = root;
       an.c->nodes.insert(&bn);
       an.c->root = root;
       return;
@@ -127,11 +133,10 @@ struct graph
 #endif
     height[node] = h;
     anc[node][0] = parent;
-    if ( node < N ) return;
-    edge &ed = edges[node-N];
+    edge &ed = edges[node];
     ed.visited = 1;
-    dfs_lca( ed.a, node, h + 1 );
-    dfs_lca( ed.b, node, h + 1 );
+    if ( ed.a != -1 ) dfs_lca( ed.a, node, h + 1 );
+    if ( ed.b != -1 ) dfs_lca( ed.b, node, h + 1 );
   }
   inline int lift(int node, int up)
   {
@@ -169,10 +174,9 @@ struct graph
   }
   void make_LCA()
   {
-    int total = N + edge_idx;
     exp_max = 0;
     int k = 1;
-    while( k < total )
+    while( k < edge_idx )
     {
       k <<= 1;
       exp_max++;
@@ -180,29 +184,29 @@ struct graph
 #ifdef DEBUG
  printf("exp_max %d\n", exp_max);
 #endif 
-    height.resize(total, 0);
-    anc.resize(total);
+    height.resize(edge_idx, 0);
+    anc.resize(edge_idx);
     for ( auto &u: anc ) u.resize(exp_max + 1, -1);
     for ( auto c: comps )
     {
-      auto &ed = edges[c->root - N];
+      auto &ed = edges[c->root];
       if ( !ed.visited ) {
 #ifdef DEBUG
- printf("dfs_lca on %d\n", c->root - N);
+ printf("dfs_lca on %d\n", c->root);
 #endif
         dfs_lca(c->root, -1);
       }
     }
 #ifdef DEBUG
     for ( int i = 0; i < edge_idx; i++ )
-      if ( !edges[i].visited ) printf("BUG: edge %d %d <-> %d not visited\n", i + N, edges[i].a, edges[i].b);
-    for ( int i = 0; i < total; i++ )
+      if ( !edges[i].visited ) printf("BUG: edge %d %d <-> %d not visited\n", i, edges[i].a, edges[i].b);
+    for ( int i = 0; i < edge_idx; i++ )
       printf("%d h %d\n", i, height[i]);
 #endif
     // finalyze
     for ( int e = 1; e <= exp_max; e++ )
     {
-      for ( int node = 0; node < total; node++ )
+      for ( int node = 0; node < edge_idx; node++ )
       {
         if ( anc[node][e-1] != -1 ) anc[node][e] = anc[ anc[node][e-1] ][e - 1];
       }
@@ -214,14 +218,14 @@ struct graph
     a--; b--;
     // check if they are connected
     if ( !nodes[a].c || !nodes[b].c || nodes[a].c != nodes[b].c ) return -1;
-    int root = find_LCA(a, b);
+    int root = find_LCA(nodes[a].edge, nodes[b].edge);
     if ( root == -1 ) return -1;
-    if ( root < N )
-    { 
+    if ( root >= edge_idx )
+    {
       printf("BUG: a %d b %d root %d\n", a+1, b+1, root);
       return -1;
     }
-    return edges[root - N].day;
+    return edges[root].day;
   }
 };
 
