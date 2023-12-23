@@ -12,7 +12,8 @@
 
 using namespace std;
 
-// solution for New Roads Queries
+// solution for New Roads Queries using LCA
+// results 0.87s on test 6
 
 struct edge
 {
