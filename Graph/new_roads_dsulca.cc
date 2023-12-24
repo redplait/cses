@@ -10,7 +10,7 @@
 
 using namespace std;
 
-// solution for New Roads Queries using DCU & LCA
+// solution for New Roads Queries using DSU & LCA
 // Results with LCA(N + edge_idx) 0.87s on test 6
 // We can reduce size of LCA tree - just store initial edge in each node and include to LCA tree only edges
 // Results with LCA(edge_idx) 0.77s on test 6
