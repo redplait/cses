@@ -396,6 +396,9 @@ sub dump_csv_dedges
 sub compact
 {
   my $res = 0;
+  my $curr;
+  do {
+   $curr = 0;
   foreach my $i ( 1 .. 1+$g_N )
   {
     next if ( !exists $G{$i} );
@@ -404,7 +407,8 @@ sub compact
     {
       my $oi = is_d11($i);
       next if ( !defined $oi );
- # printf("c %d out %d in %d\n", $i, $oi->[0], $oi->[1]);    
+ # printf("c %d out %d in %d\n", $i, $oi->[0], $oi->[1]);
+      $curr++;
       # patch out-edge
       my $oe = $G{$oi->[0]};
       my $ie = $G{$oi->[1]};
@@ -416,9 +420,10 @@ sub compact
     } else {
       my $e2 = is_d2($i);
       next if ( !defined $e2 );
+      $curr++;
       my $v1 = $G{$e2->[0]};
       my $v2 = $G{$e2->[1]};
-# printf("c %d v1 %d v2 %d\n", $i, $e2->[0], $e2->[1]);      
+# printf("c %d v1 %d v2 %d\n", $i, $e2->[0], $e2->[1]);
       delete $v1->[1]->{$i};
       delete $v2->[1]->{$i};
       # add edges v1 -> v2
@@ -428,6 +433,7 @@ sub compact
     delete $G{$i};
     $res++;
   }
+  } while($curr);
   return $res;
 }
 
