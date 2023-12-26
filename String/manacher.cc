@@ -6,6 +6,7 @@
 
 // solution for Longest Palindrome
 // ripped from https://codeforces.com/blog/entry/12143
+// 0.04s
 using namespace std;
 
 struct manacher

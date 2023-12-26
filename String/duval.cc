@@ -5,6 +5,7 @@ using namespace std;
 
 // solution for Minimal Rotation
 // ripped Duval algo from https://codeforces.com/blog/entry/90035
+// 0.02s - very good imho
 
 /// Find starting position of minimum acyclic string in (s)
 void min_cyc(string &s)
