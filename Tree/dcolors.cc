@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <stack>
+#include <algorithm>
 
 #pragma GCC target("sse,sse2,sse3,ssse3,sse4,sse4.2,popcnt,tune=native")
 #pragma GCC optimize("-Ofast")
@@ -370,9 +371,7 @@ printf("colors %ld %d\n", color_remap.size(), cidx);
 #ifdef TIME
   printTime("results");
   // calc amount of leaves
-  int lcnt = 0;
-  for ( int i = 0; i < n; ++i )
-    if ( g->nodes[i].leaf ) lcnt++;
+  int lcnt = count_if(g->nodes.begin(), g->nodes.end(), [](const node &v) { return v.leaf; });
   printf("alloced %d removed %d dfs %d both_leaves %d leaves %d conts %d merges %d Bsize %d\n",
     g->alloced, g->removed, g->dfs_cnt, g->both_leaves, lcnt, Bset::s_cnt, Bset::s_mrg, Bset::s_size32);
 #endif
