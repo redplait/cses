@@ -8,7 +8,7 @@
 #include <algorithm>
 
 #pragma GCC target("sse,sse2,sse3,ssse3,sse4,sse4.2,popcnt,tune=native")
-#pragma GCC optimize("-Ofast")
+#pragma GCC optimize("O3,unroll-loops")
 
 // solution for Distinct Colors
 // main idea - for some vertex we can OR mask of colors from all children
@@ -19,7 +19,7 @@
 // 2) for such chains we can have only 1 Bset and test if color of currently processed node already inside it
 // Another unpleasant observation - this is NOT binary trees. Proof: in test 5 node 2 has degreee 4
 // so is_fork should fill list of non-visited children, not just 1 left & 1 right
-// Results: 0.85s on test 10
+// Results: 0.68s on test 10
 using namespace std;
 
 struct Bset
@@ -54,6 +54,14 @@ struct Bset
     int idx = i >> 3; // div 8
     int mask = i & 7;
     b[idx] |= 1 << mask;
+  }
+  inline void test_set(int i, int &size)
+  {
+    int idx = i >> 3; // div 8
+    int mask = i & 7;
+    if ( b[idx] & (1 << mask) ) return;
+    b[idx] |= 1 << mask;
+    size++;
   }
   inline bool test(int i)
   {
@@ -231,8 +239,7 @@ printf("both %d and %d are leaves\n", l, r);
 printf("l %d curr %p\n", l, curr);
 #endif
             curr_size = nodes[r].ncolors;
-            if ( !curr->test(nodes[l].color) )
-            { curr->set(nodes[l].color); curr_size++; }
+            curr->test_set(nodes[l].color, curr_size);
             break;
           }
           // right node is leaf ?
@@ -245,8 +252,7 @@ printf("l %d curr %p\n", l, curr);
 printf("r %d curr %p\n", r, curr);
 #endif
             curr_size = nodes[l].ncolors;
-            if ( !curr->test(nodes[r].color) )
-            { curr->set(nodes[r].color); curr_size++; }
+            curr->test_set(nodes[r].color, curr_size);
             break;
           }
           // both not leaves
@@ -273,8 +279,7 @@ printf("both %d & %d, ncolors %d %d\n", l, r, nodes[l].colors->count(), nodes[r]
           if ( visited[c] ) continue;
           if ( nodes[c].is_leaf(v, visited) )
           {
-            if ( !curr->test(nodes[c].color) )
-            { curr->set(nodes[c].color); curr_size++; }
+            curr->test_set(nodes[c].color, curr_size);
             visited[c] = 1;
             continue;
           }
@@ -307,8 +312,7 @@ printf("dfs %d curr %p curr_size %d real %d\n", old_v, curr, curr_size, curr->co
     while( !st.empty() )
     {
       int s = st.top(); st.pop();
-      if ( !curr->test(nodes[s].color) )
-      { curr->set(nodes[s].color); curr_size++; }
+      curr->test_set(nodes[s].color, curr_size);
       nodes[s].ncolors = curr_size;
     }
     if ( old_p == -1 )
