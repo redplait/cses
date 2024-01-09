@@ -30,6 +30,23 @@ struct item
   int left, size, centr_idx;
 };
 
+void find_centroid(vector<item> &h, int idx)
+{
+  if ( 1 == h[idx].size )
+  {
+    h[idx].centr_idx = idx;
+    return;
+  }
+  double sum = 0.0, prod = 0.0;
+  for ( int i = 0; i < h[idx].size; i++ )
+  {
+    sum += h[idx+i].v;
+    if (i) prod += h[idx+i].v * i;
+  }
+  int new_c = round(prod / sum) + idx;
+  for ( int i = 0; i < h[idx].size; i++ ) h[idx+i].centr_idx = new_c;
+}
+
 int main()
 {
   int n, k;
@@ -49,7 +66,7 @@ int main()
   for( ; curr_k != k; curr_k-- )
   {
     int64_t best = LONG_MAX;
-    int best_i;
+    int best_i = -1;
     for ( int i = 0; i < n - 1; i++ )
     {
       // we have 4 cases - when both current and right not in cluster
@@ -76,10 +93,19 @@ int main()
       // final case - both in clusters
       if ( h[i].c_idx == h[i+1].c_idx ) continue;
       int64_t v = abs(h[i].centr_idx - h[i+1].centr_idx) * min(h[h[i].centr_idx].v, h[h[i+1].centr_idx].v);
-      if ( v < best ) { best = v; best_i = i; }
+      if ( v < best ) { best = v; best_i = i; continue; }
+      // check if  node should be merged with right cluster
+//      v = abs(i - h[i+1].centr_idx) * h[i].v;
+//      if ( v < best ) { best = v; best_i = i; cut_l = true; continue; }
+      // check if node should be merged with left cluster
+//      if ( i )
+//      {
+//        v = abs(i - h[i-1].centr_idx) * h[i].v;
+//        if ( v < best ) { best = v; best_i = i; cut_r = true; continue; }
+//      }
     }
 #ifdef DEBUG
- printf("best %d, l_idx %d r_idx %d, best %ld\n", best_i, h[best_i].c_idx, h[best_i+1].c_idx, best);
+ printf("best_i %d, l_idx %d r_idx %d, best %ld\n", best_i, h[best_i].c_idx, h[best_i+1].c_idx, best);
 #endif
     // merge best_i & best_i + 1 into cluster
     // we again have 4 cases here
@@ -100,57 +126,46 @@ int main()
       h[best_i].c_idx = h[best_i+1].c_idx;
       h[best_i].size = h[best_i+1].size + 1;
       h[best_i].left = best_i;
-      // find new centroid
-      double sum = 0.0, prod = 0.0;
-      for ( int i = 0; i < h[best_i].size; i++ )
-      {
-        sum += h[best_i+i].v;
-        prod += h[best_i+i].v * i;
-      }
-      int new_c = round(prod / sum) + best_i;
-      for ( int i = 0; i < h[best_i].size; i++ ) h[best_i+i].centr_idx = new_c;
+      find_centroid(h, best_i);
       continue;
     }
     // right not in cluster
     if ( -1 == h[best_i+1].c_idx )
     {
       // find leftmost node for this cluster
-      int left;
+      int left = best_i;
       for ( int i = best_i; i >= 0; i-- )
         if ( h[i].c_idx != h[best_i].c_idx ) break;
         else left = i;
       h[best_i+1].c_idx = h[left].c_idx;
       h[left].size++;
-      // find new centroid
-      double sum = 0.0, prod = 0.0;
-      for ( int i = 0; i < h[left].size; i++ )
-      {
-        sum += h[left+i].v;
-        prod += h[left+i].v * i;
-      }
-      int new_c = round(prod / sum) + left;
-      for ( int i = 0; i < h[left].size; i++ ) h[left+i].centr_idx = new_c;
+      find_centroid(h, left);
       continue;
     }
     // merge two adjacent clusters
-    int left;
+    int left = best_i;
     for ( int i = best_i; i >= 0; i-- )
       if ( h[i].c_idx != h[best_i].c_idx ) break;
       else left = i;
+/*    if ( cut_l )
+    {
+      h[left].size--;
+      if ( h[left].size < 2 ) { h[left].c_idx = -1; }
+      h[best_i].size = h[best_i+1].size + 1;
+      h[best_i].c_idx = h[best_i+1].c_idx;
+      h[best_i].left = best_i;
+      if ( h[left].c_idx != -1 )
+        find_centroid(h, left);
+      find_centroid(h, best_i);
+      curr_k++;
+      continue;
+    } */
     for ( int i = 0; i < h[best_i+1].size; i++ )
     {
       h[best_i+1+i].c_idx = h[left].c_idx;
       h[left].size++;
     }
-    // find new centroid
-    double sum = 0.0, prod = 0.0;
-    for ( int i = 0; i < h[left].size; i++ )
-    {
-       sum += h[left+i].v;
-       prod += h[left+i].v * i;
-    }
-    int new_c = round(prod / sum) + left;
-    for ( int i = 0; i < h[left].size; i++ ) h[left+i].centr_idx = new_c;
+    find_centroid(h, left);
   }
   // dump
   int64_t diff = 0;
