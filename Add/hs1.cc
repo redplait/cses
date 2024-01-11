@@ -127,17 +127,28 @@ int main()
       // final case - both in clusters
       if ( h[i].c_idx == h[i+1].c_idx ) continue;
     //  v = abs(h[i].centr_idx - h[i+1].centr_idx) * min(h[h[i].centr_idx].v, h[h[i+1].centr_idx].v);
+      int64_t v_left, v_right;
       // check if node[i] should be merged with right cluster
-      if ( h[i].flipped != h[i+1].c_idx )
+      //if ( h[i].flipped != h[i+1].c_idx )
       {
-        v = abs(i - h[i+1].centr_idx) * h[i].v;
-        if ( v < best ) { best = v; best_i = i; cut_l = true; cut_r = false; }
+        v_left = (i - h[i].centr_idx) * h[i].v;
+        v_right = (h[i+1].centr_idx - i) * h[i].v;
+        if ( v_left > v_right )
+        {
+          v = v_left - v_right;
+          if ( v < best ) { best = v; best_i = i; cut_l = true; cut_r = false; }
+        }
       }
       // check if node[i+1] should be merged with left cluster
-      if ( h[i+1].flipped != h[i].c_idx )
+      //if ( h[i+1].flipped != h[i].c_idx )
       {
-        v = abs(i + 1 - h[i].centr_idx) * h[i+1].v;
-        if ( v < best ) { best = v; best_i = i; cut_r = true; cut_l = false; }
+        v_left = (i + 1 - h[i].centr_idx) * h[i+1].v;
+        v_right = (h[i+1].centr_idx - i - 1) * h[i+1].v;
+        if ( v_left < v_right )
+        {
+          v = v_right - v_left;
+          if ( v < best ) { best = v; best_i = i; cut_r = true; cut_l = false; }
+        }
       }
       // finally check if we need to merge 2 adjacent cluster
       v = est_adj(h, i, curr_c);
