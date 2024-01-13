@@ -201,8 +201,8 @@ struct hs_cluster
  if ( cut_r ) printf(" cut_r");
  printf("\n");
 #endif
-    // merge best_i & best_i + 1 into cluster
     // we again have 4 cases here
+    // 1) both nodes are not in clusters, merge best_i & best_i + 1 into new cluster
     if ( -1 == h[best_i].c_idx && -1 == h[best_i+1].c_idx )
     {
       cluster cc;
@@ -215,10 +215,10 @@ struct hs_cluster
       init(cc);
       h[best_i].c_idx = h[best_i+1].c_idx = c_idx;
       cm.push_back(cc);
-      c_idx++;   
+      c_idx++;
       return 1;
     }
-    // left not in cluster - connect it to cluster at right
+    // 2) left not in cluster - connect it to cluster at right
     if ( -1 == h[best_i].c_idx )
     {
       cluster &cc = cm[h[best_i+1].c_idx];
@@ -229,7 +229,7 @@ struct hs_cluster
       init(cc);
       return 1;
     }
-    // right not in cluster
+    // 3) right not in cluster - connect it to cluster at left
     if ( -1 == h[best_i+1].c_idx )
     {
       cluster &cc = cm[h[best_i].c_idx];
@@ -297,10 +297,34 @@ struct hs_cluster
     init(lc);
     return 2;
  }
+ void mark(cluster &c, int idx)
+ {
+  for ( int i = 0; i < c.size; i++ ) h[c.left + i].c_idx = idx;
+ }
  void calc()
  {
   int res;
-  for( curr_k = n; curr_k != k; curr_k-- ) res = calc2(false);
+  if ( k < (n / 3) )
+  {
+    res = 2;
+    // divide into k equal parts
+    int curr = 0, step = n / k;
+    for ( int i = 0; i < k; i++ )
+    {
+      cluster c;
+      c.left = curr;
+      if ( i == k - 1 ) // for last put all remained nodes
+        c.size = n - curr;
+      else
+        c.size = step;
+      mark(c, c_idx);
+      find_centroid(c, c.left);
+      cm.push_back(c);
+      c_idx++;
+      curr += step;
+    }
+  } else
+    for( curr_k = n; curr_k != k; curr_k-- ) res = calc2(false);
   if ( 2 == res ) while( calc2(true) );
   // dump
   int64_t diff = 0;
@@ -315,10 +339,10 @@ struct hs_cluster
     } else {
       // calc diff
       cluster &cc = cm[h[i].c_idx];
-      for ( int j = 0; j < cc.size; j++ )
+      for ( int j = cc.left; j < cc.left + cc.size; j++ )
       {
-        if ( i + j == cc.centr_idx ) continue;
-        diff += abs(j + i - cc.centr_idx) * h[i+j].v;
+        if ( j == cc.centr_idx ) continue;
+        diff += abs(j - cc.centr_idx) * h[j].v;
       }
 #ifdef DEBUG
       printf("c %d left %d size %d centr %d diff %ld\n", h[i].c_idx, cc.left, cc.size, cc.centr_idx, diff);
