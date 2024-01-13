@@ -40,7 +40,7 @@ struct cluster
 
 struct hs_cluster
 {
-  int n, k, c_idx = 0;
+  int n, k, curr_k, c_idx = 0;
   vector<item> h;
   vector<cluster> cm;
   hs_cluster(int N, int K): n(N), k(K), h(N)
@@ -132,11 +132,8 @@ struct hs_cluster
   }
   return res;
  }
- void calc()
+ int calc2(bool no_merge)
  {
-  int curr_k = n;
-  for( ; curr_k != k; curr_k-- )
-  {
     int64_t v, best = LONG_MAX;
     int best_i = -1, curr_c, new_c;
     bool cut_l = false, cut_r = false;
@@ -168,35 +165,35 @@ struct hs_cluster
       int64_t v_left, v_right;
       cluster &lc = cm[h[i].c_idx], &rc = cm[h[i+1].c_idx];
       // check if node[i] should be merged with right cluster
+      v_left = (i - lc.centr_idx) * h[i].v;
+      v_right = (rc.centr_idx - i) * h[i].v;
+      if ( v_left > v_right )
       {
-        v_left = (i - lc.centr_idx) * h[i].v;
-        v_right = (rc.centr_idx - i) * h[i].v;
-        if ( v_left > v_right )
-        {
-          v = v_left - v_right;
-          if ( v < best ) { best = v; best_i = i; cut_l = true; cut_r = false; }
-        }
+        v = v_left - v_right;
+        if ( v < best ) { best = v; best_i = i; cut_l = true; cut_r = false; }
       }
       // check if node[i+1] should be merged with left cluster
+      v_left = (i + 1 - lc.centr_idx) * h[i+1].v;
+      v_right = (rc.centr_idx - i - 1) * h[i+1].v;
+      if ( v_left < v_right )
       {
-        v_left = (i + 1 - lc.centr_idx) * h[i+1].v;
-        v_right = (rc.centr_idx - i - 1) * h[i+1].v;
-        if ( v_left < v_right )
-        {
-          v = v_right - v_left;
-          if ( v < best ) { best = v; best_i = i; cut_r = true; cut_l = false; }
-        }
+        v = v_right - v_left;
+        if ( v < best ) { best = v; best_i = i; cut_r = true; cut_l = false; }
       }
       // finally check if we need to merge 2 adjacent cluster
-      v = est_adj(h, i, curr_c);
-      if ( v < best )
+      if ( !no_merge )
       {
-        best = v;
-        new_c = curr_c;
-        best_i = i;
-        cut_l = cut_r = false;
+        v = est_adj(h, i, curr_c);
+        if ( v < best )
+        {
+          best = v;
+          new_c = curr_c;
+          best_i = i;
+          cut_l = cut_r = false;
+        }
       }
     }
+    if ( -1 == best_i ) return 0;
 #ifdef DEBUG
  if ( -1 == best_i ) { puts("BUG"); exit(-1); }
  printf("best_i %d, l_idx %d r_idx %d, best %ld", best_i, h[best_i].c_idx, h[best_i+1].c_idx, best);
@@ -219,7 +216,7 @@ struct hs_cluster
       h[best_i].c_idx = h[best_i+1].c_idx = c_idx;
       cm.push_back(cc);
       c_idx++;   
-      continue;
+      return 1;
     }
     // left not in cluster - connect it to cluster at right
     if ( -1 == h[best_i].c_idx )
@@ -228,9 +225,9 @@ struct hs_cluster
       h[best_i].c_idx = h[best_i+1].c_idx;
       cc.size++;
       cc.left = best_i;
-      find_centroid(cc, best_i);
+      cc.centr_idx = cc.centr_l;
       init(cc);
-      continue;
+      return 1;
     }
     // right not in cluster
     if ( -1 == h[best_i+1].c_idx )
@@ -238,9 +235,9 @@ struct hs_cluster
       cluster &cc = cm[h[best_i].c_idx];
       h[best_i+1].c_idx = h[best_i].c_idx;
       cc.size++;
-      find_centroid(cc, cc.left);
+      cc.centr_idx = cc.centr_r;
       init(cc);
-      continue;
+      return 1;
     }
     // merge two adjacent clusters
     cluster &lc = cm[h[best_i].c_idx], &rc = cm[h[best_i+1].c_idx];
@@ -262,7 +259,7 @@ struct hs_cluster
       find_centroid(rc, rc.left);
       init(rc);
       curr_k++;
-      continue;
+      return 1;
     }
     // connect node[best_i + 1] with cluster at left
     if ( cut_r )
@@ -280,13 +277,13 @@ struct hs_cluster
       find_centroid(lc, lc.left);
       init(lc);
       curr_k++;
-      continue;
+      return 1;
     }
+    if ( no_merge ) return 0;
     // merge 2 adjacent cluster
 #ifdef DEBUG
  printf("merge %d (size %d left %d) & %d (size %d left %d)\n", h[best_i].c_idx, lc.size, lc.left, h[best_i+1].c_idx, rc.size, rc.left);
 #endif
-//    int old_r = h[best_i+1].c_idx;
     for ( int i = 0; i < rc.size; i++ )
     {
       h[best_i+1+i].c_idx = h[best_i].c_idx;
@@ -296,10 +293,15 @@ struct hs_cluster
  printf("new centr_idx %d\n", new_c);
 #endif
     lc.centr_idx = new_c;
-//    cm.erase(old_r);
     find_centroid(lc, lc.left);
     init(lc);
-  }
+    return 2;
+ }
+ void calc()
+ {
+  int res;
+  for( curr_k = n; curr_k != k; curr_k-- ) res = calc2(false);
+  if ( 2 == res ) while( calc2(true) );
   // dump
   int64_t diff = 0;
   for ( int i = 0; i < n; )
