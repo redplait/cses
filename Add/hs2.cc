@@ -307,6 +307,7 @@ struct hs_cluster
   if ( k < (n / 3) )
   {
     res = 2;
+#if 0    
     // divide into k equal parts
     int curr = 0, step = n / k;
     for ( int i = 0; i < k; i++ )
@@ -323,6 +324,28 @@ struct hs_cluster
       c_idx++;
       curr += step;
     }
+#else
+    // divide into k clusters with ~eq weights
+    int64_t total = 0;
+    for ( const auto &i: h ) total += i.v;
+    int64_t weight = total / k;
+    int curr = 0;
+    for ( int i = 0; i < k; i++ )
+    {
+      int64_t curr_w = 0;
+      cluster c;
+      c.left = curr;
+      for( ; curr_w < weight && curr < n; curr++ )
+      {
+        h[curr].c_idx = c_idx;
+        curr_w += h[curr].v;
+      }
+      c.size = curr - c.left;
+      find_centroid(c, c.left);
+      cm.push_back(c);
+      c_idx++;
+    }
+#endif
   } else
     for( curr_k = n; curr_k != k; curr_k-- ) res = calc2(false);
   if ( 2 == res ) while( calc2(true) );
