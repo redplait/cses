@@ -169,7 +169,7 @@ struct hs_cluster
       v_right = (rc.centr_idx - i) * h[i].v;
       if ( v_left > v_right )
       {
-        v = v_left - v_right;
+        v = v_right - v_left;
         if ( v < best ) { best = v; best_i = i; cut_l = true; cut_r = false; }
       }
       // check if node[i+1] should be merged with left cluster
@@ -177,7 +177,7 @@ struct hs_cluster
       v_right = (rc.centr_idx - i - 1) * h[i+1].v;
       if ( v_left < v_right )
       {
-        v = v_right - v_left;
+        v = v_left - v_right;
         if ( v < best ) { best = v; best_i = i; cut_r = true; cut_l = false; }
       }
       // finally check if we need to merge 2 adjacent cluster
@@ -307,7 +307,7 @@ struct hs_cluster
   if ( k < (n / 3) )
   {
     res = 2;
-#if 0    
+#if 1
     // divide into k equal parts
     int curr = 0, step = n / k;
     for ( int i = 0; i < k; i++ )
@@ -356,7 +356,7 @@ struct hs_cluster
     if ( h[i].c_idx == -1 )
     {
 #ifdef DEBUG
-      printf("%d - %d\n", i, h[i].v);
+      printf("%d - %ld\n", i, h[i].v);
 #endif
       i++;
     } else {
