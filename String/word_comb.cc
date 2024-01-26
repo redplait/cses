@@ -28,12 +28,12 @@ struct wc
 {
   string &S;
   int N, index = 0;
-  vector<int> max_len, min_len;
+  vector<int> max_len;
   vector<int64_t> dp;
-  void insert(string &s)
+  void insert(const char *s, int size)
   {
     int node = 0;
-    for (int i = 0; i < (int)s.size(); i++)
+    for (int i = 0; i < size; i++)
     {
       int c = s[i]-'a';
       if (!trie[node][c]) trie[node][c] = ++index;
@@ -41,7 +41,7 @@ struct wc
     }
     stop[node] = 1;
   }
-  wc(string &s): S(s), N((int)s.size()), max_len(26), min_len(26, INT_MAX), dp(N)
+  wc(string &s): S(s), N((int)s.size()), max_len(26), dp(N)
   {
     int k;
     cin>>k;
@@ -52,11 +52,10 @@ struct wc
       int size = (int)w.size();
       int c = w[0] - 'a';
       max_len[c] = max(max_len[c], size);
-      min_len[c] = min(min_len[c], size);
-      insert(w);
+      insert(w.c_str(), size);
     }
 #ifdef DEBUG
- for ( int i = 0; i < 26; i++ ) printf("[%d] %d %d\n", i, min_len[i], max_len[i]);
+ for ( int i = 0; i < 26; i++ ) printf("[%d] %d\n", i, max_len[i]);
 #endif
   }
   int64_t process_letter(int i)
@@ -68,8 +67,7 @@ struct wc
     int64_t res = 0;
     for ( int j = i; j < N; j++ )
     {
-      if ( j - i + 1 < min_len[initial] ) continue; // no such short strings starting with letter initial
-      if ( j - i + 1 > max_len[initial] ) break;    // no such long strings
+      if ( j - i + 1 > max_len[initial] ) break;    // no such long strings starting with letter initial
       // search in trie
       int c = S[j] - 'a';
       if (!trie[node][c]) return res;
