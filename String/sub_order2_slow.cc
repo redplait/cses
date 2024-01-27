@@ -147,10 +147,15 @@ dump_cpos(cp, n);
         printf("%s\n", S.substr(top->first, top->second + k - top->first).c_str());
         return;
       }
+      int64_t total = comb[top->second];
       int top_cnt = 1;
       while(!q.empty()) {
         auto curr = q.top();
-        if ( !cl.eq(top, curr) ) break;
+        if ( !cl.eq(top, curr) )
+        {
+          if ( k > total ) { k -= total; top_cnt = 0; popped.clear(); }
+          break;
+        }
         curr->second++; k--;
         if ( !k ) {
 #ifdef DEBUG
@@ -161,7 +166,7 @@ dump_cpos(cp, n);
         }
         top_cnt++;
         q.pop();
-        if ( curr->second < N ) popped.push_back(curr);
+        if ( curr->second < N ) { popped.push_back(curr); total += comb[curr->second]; }
       }
       if ( 1 == top_cnt )
       {
@@ -176,7 +181,8 @@ dump_cpos(cp, n);
         }
         k -= l;
         top->second = N;
-      } else {
+      } else if ( top_cnt )
+      {
         k--;
         if ( !k ) {
 #ifdef DEBUG
