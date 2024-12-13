@@ -5,8 +5,10 @@ object Match {
 // 2 matches * n - 1 for upper row +
 // 2 matches * n - 1 for rigth column - so
 // 2 * 2 * (n-1)
+// to run: scala-cli run Match.scala -- N
 
 def calc( n: Int ): Int = n match
+ case 0 => 0
  case 1 => 4
  case _ => 4 + 4 * (n - 1) + calc( n - 1 )
 
