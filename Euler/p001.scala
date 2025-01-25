@@ -1,0 +1,1 @@
+@main def calc() = println( (0 to 999).filter( a => (a % 3) == 0 || (a % 5) == 0 ).foldLeft(0)(_ + _) )
