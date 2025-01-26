@@ -8,7 +8,7 @@ import scala.io.Source
  val source = Source.fromFile("0022_names.txt")
  val names = source.mkString
  source.close
- // elements if tuple (name, index in original file)
+ // elements are tuple (name, index in sorted array)
  val indexed = names.split(",").sortWith(_ < _).zipWithIndex
 // println( indexed(937) )
  println( indexed.map( x => worth(x._1) * (1 + x._2)).sum )
